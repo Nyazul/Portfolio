@@ -3,7 +3,7 @@ import { caseStudies } from "@/lib/case-studies";
 
 export function CaseStudies() {
   return (
-    <section id="work" className="section-pad border-b border-border px-6">
+    <section id="work" className="section-pad px-6">
       <div className="mx-auto max-w-6xl">
         <h2 className="mb-12 font-mono text-sm text-text-tertiary">
           03 / Case studies

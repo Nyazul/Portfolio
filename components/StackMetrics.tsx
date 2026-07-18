@@ -12,7 +12,7 @@ const stack = [
 // is intentionally NOT mocked here; an honest "coming soon" beats a fake number.
 export function StackMetrics() {
   return (
-    <section id="stack" className="section-pad border-b border-border px-6">
+    <section id="stack" className="section-pad px-6">
       <div className="mx-auto max-w-6xl">
         <div className="mb-12 flex items-baseline justify-between">
           <h2 className="font-mono text-sm text-text-tertiary">04 / Stack</h2>

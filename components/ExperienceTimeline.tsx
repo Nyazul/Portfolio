@@ -23,7 +23,7 @@ const experience = [
 
 export function ExperienceTimeline() {
   return (
-    <section id="experience" className="section-pad border-b border-border px-6">
+    <section id="experience" className="section-pad px-6">
       <div className="mx-auto max-w-6xl">
         <h2 className="mb-12 font-mono text-sm text-text-tertiary">
           05 / Experience

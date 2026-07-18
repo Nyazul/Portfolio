@@ -19,9 +19,17 @@ type SectionRevealProps = {
   prevTheme: SectionTheme;
 };
 
-// PRD Section 7.1: pinned, scrub-driven row-flip reveal on desktop with
-// motion enabled. Mobile (<768px) and prefers-reduced-motion both fall back
-// to a plain opacity fade-in - see the matchMedia branches below.
+// PRD Section 7.1: pinned, scrub-driven row reveal on desktop with motion
+// allowed. Mobile (<768px) and prefers-reduced-motion both fall back to a
+// plain opacity fade-in - see the matchMedia branches below.
+//
+// This is a flat scaleY collapse (transform-origin: top), not a 3D rotateX
+// flip. An earlier version used rotateX + perspective, which is correct 3D
+// projection but produces exactly what you'd expect from rotating a flat
+// plane away from the viewer: the far (bottom) edge foreshortens, giving a
+// trapezoid instead of a rectangle, plus rotation-overshoot glitches near
+// the perspective's vanishing point. scaleY has none of that - the rows
+// just minimize, full width preserved top to bottom.
 export function SectionReveal({
   children,
   className,
@@ -45,7 +53,7 @@ export function SectionReveal({
     const ctx = gsap.context(() => {
       const mm = gsap.matchMedia();
 
-      // Full pinned row-flip: desktop + motion allowed.
+      // Full pinned row reveal: desktop + motion allowed.
       mm.add(
         "(min-width: 768px) and (prefers-reduced-motion: no-preference)",
         () => {
@@ -53,14 +61,11 @@ export function SectionReveal({
           // Flaps are invisible by default (see className below) so that no-JS
           // and pre-hydration states show the real content, not a permanent
           // cover. Only here, once we know this browser will run the full
-          // pinned animation, do we make them opaque and flat (covering)
-          // before immediately animating them away on scroll. Perspective
-          // now lives once on the shared parent (see the wrapping div below)
-          // rather than per-flap, so all rows share one vanishing point
-          // instead of each bulging independently.
+          // pinned animation, do we make them opaque and full-height before
+          // immediately animating them away on scroll.
           gsap.set(flapsRef.current, {
             autoAlpha: 1,
-            rotateX: 0,
+            scaleY: 1,
           });
 
           const tl = gsap.timeline({
@@ -73,7 +78,7 @@ export function SectionReveal({
           });
 
           tl.to(flapsRef.current, {
-            rotateX: -100,
+            scaleY: 0,
             stagger: 0.06,
             ease: "none",
           });
@@ -118,18 +123,10 @@ export function SectionReveal({
   return (
     <div
       ref={containerRef}
-      // bg-bg here is the fix for the real bug the video surfaced: the CSS
-      // var overrides from themeStyle() were being set correctly, but
-      // nothing was ever painting them - only <body> (always the root/dark
-      // value) was visibly the page background. This class is what actually
-      // makes each section's local override paint as its own canvas.
       className={`relative bg-bg ${className ?? ""}`}
       style={themeStyle(theme)}
     >
-      <div
-        className="pointer-events-none absolute inset-0 z-10 flex flex-col"
-        style={{ perspective: "1000px" }}
-      >
+      <div className="pointer-events-none absolute inset-0 z-10">
         {Array.from({ length: rows }).map((_, i) => (
           <div
             key={i}
@@ -141,10 +138,19 @@ export function SectionReveal({
             // starts animating them away. No-JS/reduced-motion/mobile users
             // never see a cover at all. Background is the PREVIOUS section's
             // color (not this section's own bg-bg) - that's what makes the
-            // flip read as a transition rather than a same-color flash.
-            className="invisible [backface-visibility:hidden]"
+            // reveal read as a transition rather than a same-color flash.
+            //
+            // Absolutely positioned with a deliberate 1px overlap top and
+            // bottom (rather than flex-distributed tiles) - adjacent rows
+            // with independent CSS transforms can expose a subpixel seam
+            // between them even when their untransformed geometry tiles
+            // perfectly, letting the section's own (differently-colored)
+            // bg-bg peek through as a thin line. The overlap guarantees
+            // there's never a gap for that to happen through.
+            className="invisible absolute inset-x-0 [backface-visibility:hidden]"
             style={{
-              height: `${100 / rows}%`,
+              top: `calc(${(i / rows) * 100}% - 1px)`,
+              height: `calc(${100 / rows}% + 2px)`,
               transformOrigin: "top",
               backgroundColor: themeColors[prevTheme].bg,
             }}

@@ -8,7 +8,7 @@ export function Hero() {
   return (
     <section
       id="top"
-      className="section-pad flex min-h-[90vh] flex-col justify-center border-b border-border px-6"
+      className="section-pad flex min-h-[90vh] flex-col justify-center px-6"
     >
       <div className="mx-auto w-full max-w-6xl">
         <p className="mb-4 font-mono text-sm text-text-tertiary">

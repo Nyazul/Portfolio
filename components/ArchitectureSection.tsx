@@ -8,7 +8,7 @@ export function ArchitectureSection() {
   return (
     <section
       id="architecture"
-      className="section-pad border-b border-border px-6"
+      className="section-pad px-6"
     >
       <div className="mx-auto max-w-6xl">
         <div className="mb-12 flex items-baseline justify-between">
