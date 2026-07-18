@@ -54,11 +54,13 @@ export function SectionReveal({
           // and pre-hydration states show the real content, not a permanent
           // cover. Only here, once we know this browser will run the full
           // pinned animation, do we make them opaque and flat (covering)
-          // before immediately animating them away on scroll.
+          // before immediately animating them away on scroll. Perspective
+          // now lives once on the shared parent (see the wrapping div below)
+          // rather than per-flap, so all rows share one vanishing point
+          // instead of each bulging independently.
           gsap.set(flapsRef.current, {
             autoAlpha: 1,
             rotateX: 0,
-            transformPerspective: 800,
           });
 
           const tl = gsap.timeline({
@@ -116,10 +118,18 @@ export function SectionReveal({
   return (
     <div
       ref={containerRef}
-      className={`relative ${className ?? ""}`}
+      // bg-bg here is the fix for the real bug the video surfaced: the CSS
+      // var overrides from themeStyle() were being set correctly, but
+      // nothing was ever painting them - only <body> (always the root/dark
+      // value) was visibly the page background. This class is what actually
+      // makes each section's local override paint as its own canvas.
+      className={`relative bg-bg ${className ?? ""}`}
       style={themeStyle(theme)}
     >
-      <div className="pointer-events-none absolute inset-0 z-10 flex flex-col">
+      <div
+        className="pointer-events-none absolute inset-0 z-10 flex flex-col"
+        style={{ perspective: "1000px" }}
+      >
         {Array.from({ length: rows }).map((_, i) => (
           <div
             key={i}
