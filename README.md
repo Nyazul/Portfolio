@@ -11,6 +11,20 @@ it's the source of truth for design tokens, content, and the phased build plan.
   every section below the hero (`components/motion/SectionReveal.tsx`), and
   a reusable magnetic-pull hover on nav links and hero CTAs
   (`components/motion/MagneticHover.tsx`, built on `motion`).
+  - **Sections alternate dark/light** (`lib/theme-colors.ts`) so the row-flip
+    actually reads as a color transition instead of a same-color flash — the
+    original version colored flaps to match their own section's background,
+    which just looked like thin lines appearing. Fixed: each section's flaps
+    are colored with the *previous* section's palette, so scrolling into a
+    light section after a dark one shows dark flaps peeling away to reveal
+    light content underneath. Hero stays permanently dark as the fixed
+    first-viewport identity; About/Architecture/Case Studies/Stack/
+    Experience/Contact alternate from there.
+  - Every other component needed zero changes to support this — they already
+    use semantic token classes (`bg-bg`, `text-text-primary`, `border-border`,
+    etc.), which Tailwind v4 compiles to `var(--color-*)`. Overriding those
+    CSS variables on `SectionReveal`'s wrapping container re-themes
+    everything inside it automatically.
   - **Reduced-motion and mobile are real fallbacks, not afterthoughts:**
     `SectionReveal`'s flap overlays are `invisible` by default in the
     server-rendered HTML itself (verified by curling the page and checking
