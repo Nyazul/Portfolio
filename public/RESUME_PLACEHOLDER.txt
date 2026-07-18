@@ -1,3 +1,0 @@
-Add your résumé PDF here as resume.pdf (public/resume.pdf).
-The Nav and Footer components already link to /resume.pdf - nothing else
-needs to change once the file is added.

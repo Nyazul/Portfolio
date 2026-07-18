@@ -3,30 +3,48 @@
 Spec: [docs/portfolio-prd-v1.md](./docs/portfolio-prd-v1.md) — read this first,
 it's the source of truth for design tokens, content, and the phased build plan.
 
-## Status: Phase 1 complete (content & design system)
+## Status: Phase 2 complete (motion polish)
 
-- All sections built as static, motion-free content: Hero, About,
-  Architecture (static grid, doubles as the mandatory 3D fallback),
-  Case Studies (with dedicated `/work/[slug]` routes), Stack (self-assessed,
-  live GitHub data deferred), Experience, Contact (with honeypot + server-side
-  validation).
-- Deliberately no GSAP, no Motion, no particles, no 3D yet. Per the PRD's ship
-  criterion: this should be a complete, readable site even with all animation
-  absent.
-- SEO basics done now, not deferred: sitemap.ts, robots.ts, dynamic OG image,
-  Person/Article JSON-LD.
+- **Phase 1** (content & design system): all sections, `/work/[slug]` routes,
+  contact form with honeypot + validation, sitemap/robots/OG/JSON-LD.
+- **Phase 2** (this round): GSAP `ScrollTrigger` pinned row-flip reveal on
+  every section below the hero (`components/motion/SectionReveal.tsx`), and
+  a reusable magnetic-pull hover on nav links and hero CTAs
+  (`components/motion/MagneticHover.tsx`, built on `motion`).
+  - **Reduced-motion and mobile are real fallbacks, not afterthoughts:**
+    `SectionReveal`'s flap overlays are `invisible` by default in the
+    server-rendered HTML itself (verified by curling the page and checking
+    the raw markup) — only the desktop + motion-allowed `matchMedia` branch
+    ever makes them opaque before animating them away. No-JS, JS-disabled,
+    `prefers-reduced-motion`, and mobile viewports all just see the section
+    fade in normally or appear immediately. `MagneticHover` returns a plain
+    unstyled wrapper (no transform logic at all) when reduced motion is set.
+  - First Load JS on the homepage grew from ~107KB (Phase 1) to ~194KB with
+    GSAP + Motion added — still comfortably under the 250KB budget in the
+    PRD, but worth knowing GSAP/Motion are the biggest line items in that
+    budget as more gets added in Phase 3/4.
 
 ## Not done yet (see docs/portfolio-prd-v1.md Section 2 for the phase plan)
 
-- **Phase 2** — GSAP ScrollTrigger section-flip transitions, Motion
-  micro-interactions (`MagneticHover`), `prefers-reduced-motion` fallbacks.
 - **Phase 3** — Canvas particle field in the hero.
 - **Phase 4** — Three.js/R3F 3D architecture visualizer, live GitHub metrics
   (needs a fine-grained PAT — see `.env.example`).
 
+## Worth checking yourself before Phase 3
+
+- **The iOS Safari pin risk called out in the PRD (Section 7.1) is real and
+  I can't test it from here** — I don't have a way to open a real iOS Safari
+  session on this machine. Please load the dev site on an actual iPhone (not
+  just desktop responsive mode) before this goes further, specifically
+  scrolling through a couple of section transitions, and flag if the pin
+  desyncs from the dynamic toolbar resize.
+- Toggle "reduce motion" in your OS accessibility settings and reload — you
+  should see sections just fade in with no pin/flip at all, and hero/nav
+  hover should have no magnetic pull.
+
 ## Before this goes live
 
-- [ ] Add `public/resume.pdf` (linked from Nav and Footer, file not present yet)
+- [x] Résumé added at `public/Nyazul_Ansari_Resume.pdf`, linked from Nav/Footer
 - [ ] Wire an actual email provider in `app/api/contact/route.ts` (currently
       validates and logs only — see the TODO in that file)
 - [ ] Copy `.env.example` to `.env.local` and fill in `NEXT_PUBLIC_SITE_URL`

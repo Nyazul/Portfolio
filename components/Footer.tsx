@@ -12,7 +12,7 @@ export function Footer() {
           <a href={siteConfig.linkedin} className="hover:text-text-primary">
             LinkedIn
           </a>
-          <a href="/resume.pdf" className="hover:text-text-primary">
+          <a href="/Nyazul_Ansari_Resume.pdf" className="hover:text-text-primary">
             Résumé
           </a>
         </div>

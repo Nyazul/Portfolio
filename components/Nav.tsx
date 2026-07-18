@@ -1,3 +1,5 @@
+import { MagneticHover } from "@/components/motion/MagneticHover";
+
 const links = [
   { href: "#about", label: "About" },
   { href: "#architecture", label: "Architecture" },
@@ -17,21 +19,25 @@ export function Nav() {
         <ul className="hidden gap-8 text-sm text-text-secondary md:flex">
           {links.map((link) => (
             <li key={link.href}>
-              <a
-                href={link.href}
-                className="transition-colors duration-200 hover:text-text-primary"
-              >
-                {link.label}
-              </a>
+              <MagneticHover strength={10}>
+                <a
+                  href={link.href}
+                  className="transition-colors duration-200 hover:text-text-primary"
+                >
+                  {link.label}
+                </a>
+              </MagneticHover>
             </li>
           ))}
         </ul>
-        <a
-          href="/resume.pdf"
-          className="rounded-none border border-border px-4 py-2 text-sm text-text-primary transition-colors duration-200 hover:border-text-primary"
-        >
-          Résumé
-        </a>
+        <MagneticHover strength={10}>
+          <a
+            href="/Nyazul_Ansari_Resume.pdf"
+            className="rounded-none border border-border px-4 py-2 text-sm text-text-primary transition-colors duration-200 hover:border-text-primary"
+          >
+            Résumé
+          </a>
+        </MagneticHover>
       </nav>
     </header>
   );
