@@ -8,29 +8,30 @@ import { Contact } from "@/components/Contact";
 import { SectionReveal } from "@/components/motion/SectionReveal";
 
 // Phase 2: GSAP pinned row-flip reveal on each section below the hero
-// (PRD 7.1), with automatic fallback to a plain fade-in on mobile or
-// prefers-reduced-motion (PRD 7.5) - see SectionReveal for the branching.
-// Hero itself is never wrapped - it's the first thing visible on load.
+// (PRD 7.1), alternating dark/light per section so the flip actually reads
+// as a color transition rather than a same-color flash. Hero stays dark
+// and unwrapped - it's the first thing visible on load, nothing to
+// transition FROM above it.
 export default function Home() {
   return (
     <main>
       <Hero />
-      <SectionReveal>
+      <SectionReveal theme="light" prevTheme="dark">
         <About />
       </SectionReveal>
-      <SectionReveal>
+      <SectionReveal theme="dark" prevTheme="light">
         <ArchitectureSection />
       </SectionReveal>
-      <SectionReveal>
+      <SectionReveal theme="light" prevTheme="dark">
         <CaseStudies />
       </SectionReveal>
-      <SectionReveal>
+      <SectionReveal theme="dark" prevTheme="light">
         <StackMetrics />
       </SectionReveal>
-      <SectionReveal>
+      <SectionReveal theme="light" prevTheme="dark">
         <ExperienceTimeline />
       </SectionReveal>
-      <SectionReveal>
+      <SectionReveal theme="dark" prevTheme="light">
         <Contact />
       </SectionReveal>
     </main>

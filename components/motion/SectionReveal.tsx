@@ -3,6 +3,7 @@
 import { useLayoutEffect, useRef } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { themeColors, themeStyle, type SectionTheme } from "@/lib/theme-colors";
 
 let registered = false;
 
@@ -10,16 +11,23 @@ type SectionRevealProps = {
   children: React.ReactNode;
   className?: string;
   rows?: number;
+  // This section's own palette (applied to its content via CSS var overrides).
+  theme: SectionTheme;
+  // The section immediately above it - the flap color, so the reveal reads
+  // as a transition FROM the previous section's color INTO this one's,
+  // not just this section flashing its own (matching) color at itself.
+  prevTheme: SectionTheme;
 };
 
 // PRD Section 7.1: pinned, scrub-driven row-flip reveal on desktop with
 // motion enabled. Mobile (<768px) and prefers-reduced-motion both fall back
-// to a plain opacity fade-in - see the matchMedia branches below, this is
-// not an afterthought bolted onto the desktop version.
+// to a plain opacity fade-in - see the matchMedia branches below.
 export function SectionReveal({
   children,
   className,
   rows = 6,
+  theme,
+  prevTheme,
 }: SectionRevealProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const flapsRef = useRef<HTMLDivElement[]>([]);
@@ -106,7 +114,11 @@ export function SectionReveal({
   }, []);
 
   return (
-    <div ref={containerRef} className={`relative ${className ?? ""}`}>
+    <div
+      ref={containerRef}
+      className={`relative ${className ?? ""}`}
+      style={themeStyle(theme)}
+    >
       <div className="pointer-events-none absolute inset-0 z-10 flex flex-col">
         {Array.from({ length: rows }).map((_, i) => (
           <div
@@ -117,9 +129,15 @@ export function SectionReveal({
             // invisible by default: only the desktop-motion matchMedia branch
             // ever makes these opaque, and only for the instant before it
             // starts animating them away. No-JS/reduced-motion/mobile users
-            // never see a cover at all.
-            className="invisible border-b border-border bg-bg [backface-visibility:hidden]"
-            style={{ height: `${100 / rows}%`, transformOrigin: "top" }}
+            // never see a cover at all. Background is the PREVIOUS section's
+            // color (not this section's own bg-bg) - that's what makes the
+            // flip read as a transition rather than a same-color flash.
+            className="invisible [backface-visibility:hidden]"
+            style={{
+              height: `${100 / rows}%`,
+              transformOrigin: "top",
+              backgroundColor: themeColors[prevTheme].bg,
+            }}
           />
         ))}
       </div>
