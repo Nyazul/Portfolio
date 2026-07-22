@@ -3,58 +3,82 @@
 Spec: [docs/portfolio-prd-v1.md](./docs/portfolio-prd-v1.md) — read this first,
 it's the source of truth for design tokens, content, and the phased build plan.
 
-## Status: Phase 2 complete (motion polish)
+## Status: Phase 3 complete (particle field, expanded beyond the original spec)
 
 - **Phase 1** (content & design system): all sections, `/work/[slug]` routes,
   contact form with honeypot + validation, sitemap/robots/OG/JSON-LD.
-- **Phase 2** (this round): GSAP `ScrollTrigger` pinned row-flip reveal on
-  every section below the hero (`components/motion/SectionReveal.tsx`), and
-  a reusable magnetic-pull hover on nav links and hero CTAs
-  (`components/motion/MagneticHover.tsx`, built on `motion`).
-  - **Sections alternate dark/light** (`lib/theme-colors.ts`) so the row-flip
-    actually reads as a color transition instead of a same-color flash — the
-    original version colored flaps to match their own section's background,
-    which just looked like thin lines appearing. Fixed: each section's flaps
-    are colored with the *previous* section's palette, so scrolling into a
-    light section after a dark one shows dark flaps peeling away to reveal
-    light content underneath. Hero stays permanently dark as the fixed
-    first-viewport identity; About/Architecture/Case Studies/Stack/
-    Experience/Contact alternate from there.
-  - Every other component needed zero changes to support this — they already
-    use semantic token classes (`bg-bg`, `text-text-primary`, `border-border`,
-    etc.), which Tailwind v4 compiles to `var(--color-*)`. Overriding those
-    CSS variables on `SectionReveal`'s wrapping container re-themes
-    everything inside it automatically.
-  - **Reduced-motion and mobile are real fallbacks, not afterthoughts:**
-    `SectionReveal`'s flap overlays are `invisible` by default in the
-    server-rendered HTML itself (verified by curling the page and checking
-    the raw markup) — only the desktop + motion-allowed `matchMedia` branch
-    ever makes them opaque before animating them away. No-JS, JS-disabled,
-    `prefers-reduced-motion`, and mobile viewports all just see the section
-    fade in normally or appear immediately. `MagneticHover` returns a plain
-    unstyled wrapper (no transform logic at all) when reduced motion is set.
-  - First Load JS on the homepage grew from ~107KB (Phase 1) to ~194KB with
-    GSAP + Motion added — still comfortably under the 250KB budget in the
-    PRD, but worth knowing GSAP/Motion are the biggest line items in that
-    budget as more gets added in Phase 3/4.
+- **Phase 2** (motion polish): GSAP `ScrollTrigger` pinned row-flip reveal on
+  every section below the hero (`components/motion/SectionReveal.tsx`), a
+  reusable magnetic-pull hover on nav links and hero CTAs
+  (`components/motion/MagneticHover.tsx`), sections alternating dark/light
+  (`lib/theme-colors.ts`) so the row-flip reads as a real color transition.
+  Reduced-motion and mobile both have real fallbacks, verified via raw HTML
+  inspection, not just eyeballed.
+- **Phase 3** (this round) grew past the original PRD scope (hero-only
+  particle field) at your direction, into a particle system used throughout
+  the page:
+  - `components/motion/ParticleField.tsx` — the original full-bleed hero
+    background, idle-drifting starfield.
+  - `components/motion/SectionParticles.tsx` + `SectionSplit.tsx` — every
+    section below the hero is now a 2:1 grid (content : particle space),
+    alternating which side the particle column sits on per section. The
+    particles converge into an abstract, original mark (never a real logo —
+    see `lib/particle-shapes.ts`: an avatar mark for About, the node-graph
+    for Architecture, a document mark for Case Studies, a bar-chart mark for
+    Stack, a timeline mark for Experience, an envelope mark for Contact)
+    when the section is centered in the viewport, and scatter back to idle
+    drift as it moves away — one continuous distance-based value handles
+    both "converge mid-section" and "scatter between sections" without
+    separate triggers.
+  - Sections were given real scroll room (`min-h-[140vh]`/`160vh` on the
+    inner content wrapper) specifically so this converge/scatter cycle has
+    room to actually read as a cycle instead of flashing past.
+  - **Two real bugs caught by screenshotting actual scroll positions, not
+    just reading the code:**
+    1. Particle color was hardcoded light — invisible on light sections.
+       Fixed: `SectionParticles` takes the section's `theme` and flips
+       between light/dark particle color to match.
+    2. The hero's shape-resolve progress was originally scaled to the
+       hero's *entire* scroll-out distance, meaning "fully resolved" only
+       ever occurred after the hero (and its canvas) had already scrolled
+       completely off-screen — nobody could ever actually see the finished
+       shape. Fixed by resolving within the first ~35% of the hero's
+       scroll-out instead, confirmed via a 4-step scroll screenshot
+       sequence that the shape is now fully formed while still clearly
+       on-screen.
+  - Both the hero field and the per-section instances share the same kill
+    switch, `NEXT_PUBLIC_ENABLE_PARTICLES` (PRD Section 12) — flip it off
+    and every particle canvas on the page disappears at once, no code
+    changes.
+  - Mobile layout (columns stack, content always first even on `reverse`
+    sections) and desktop column-order alternation were both verified via
+    Puppeteer DOM inspection (actual computed grid/bounding-rect values),
+    not just visual spot-checking.
+  - First Load JS: still ~196KB — the whole particle system is plain Canvas
+    2D with zero new dependencies, so this added almost nothing to the
+    budget.
 
 ## Not done yet (see docs/portfolio-prd-v1.md Section 2 for the phase plan)
 
-- **Phase 3** — Canvas particle field in the hero.
 - **Phase 4** — Three.js/R3F 3D architecture visualizer, live GitHub metrics
   (needs a fine-grained PAT — see `.env.example`).
 
-## Worth checking yourself before Phase 3
+## Worth checking yourself
 
 - **The iOS Safari pin risk called out in the PRD (Section 7.1) is real and
   I can't test it from here** — I don't have a way to open a real iOS Safari
   session on this machine. Please load the dev site on an actual iPhone (not
-  just desktop responsive mode) before this goes further, specifically
-  scrolling through a couple of section transitions, and flag if the pin
-  desyncs from the dynamic toolbar resize.
+  just desktop responsive mode), specifically scrolling through a couple of
+  section transitions, and flag if the pin desyncs from the dynamic toolbar
+  resize.
 - Toggle "reduce motion" in your OS accessibility settings and reload — you
-  should see sections just fade in with no pin/flip at all, and hero/nav
-  hover should have no magnetic pull.
+  should see sections just fade in with no pin/flip, no magnetic pull, and
+  particles render as a single static resolved-shape frame with no
+  animation loop.
+- The particle shapes (`lib/particle-shapes.ts`) are original abstract marks
+  built from circles/arcs/lines, not real logos — take a look and tell me if
+  any read as too generic or if you'd rather swap one for something more
+  specific to that section.
 
 ## Before this goes live
 

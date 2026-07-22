@@ -1,3 +1,6 @@
+import { SectionSplit } from "@/components/motion/SectionSplit";
+import { sectionShapes } from "@/lib/particle-shapes";
+
 const experience = [
   {
     role: "Java Software Engineer",
@@ -23,33 +26,31 @@ const experience = [
 
 export function ExperienceTimeline() {
   return (
-    <section id="experience" className="section-pad px-6">
-      <div className="mx-auto max-w-6xl">
-        <h2 className="mb-12 font-mono text-sm text-text-tertiary">
-          05 / Experience
-        </h2>
-        <div className="space-y-16">
-          {experience.map((role) => (
-            <div
-              key={role.role + role.period}
-              className="grid gap-4 md:grid-cols-[200px_1fr]"
-            >
-              <div>
-                <p className="text-text-primary">{role.role}</p>
-                <p className="text-sm text-text-tertiary">{role.org}</p>
-                <p className="mt-1 font-mono text-xs text-text-tertiary">
-                  {role.period}
-                </p>
-              </div>
-              <ul className="space-y-3 text-sm leading-normal text-text-secondary">
-                {role.bullets.map((bullet) => (
-                  <li key={bullet}>— {bullet}</li>
-                ))}
-              </ul>
+    <SectionSplit id="experience" theme="light" shapePoints={sectionShapes.experience}>
+      <h2 className="mb-12 font-mono text-sm text-text-tertiary">
+        05 / Experience
+      </h2>
+      <div className="space-y-16">
+        {experience.map((role) => (
+          <div
+            key={role.role + role.period}
+            className="grid gap-4 md:grid-cols-[200px_1fr]"
+          >
+            <div>
+              <p className="text-text-primary">{role.role}</p>
+              <p className="text-sm text-text-tertiary">{role.org}</p>
+              <p className="mt-1 font-mono text-xs text-text-tertiary">
+                {role.period}
+              </p>
             </div>
-          ))}
-        </div>
+            <ul className="space-y-3 text-sm leading-normal text-text-secondary">
+              {role.bullets.map((bullet) => (
+                <li key={bullet}>— {bullet}</li>
+              ))}
+            </ul>
+          </div>
+        ))}
       </div>
-    </section>
+    </SectionSplit>
   );
 }

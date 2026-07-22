@@ -1,16 +1,17 @@
 import { siteConfig } from "@/lib/site-config";
 import { MagneticHover } from "@/components/motion/MagneticHover";
+import { ParticleField } from "@/components/motion/ParticleField";
 
 // Hero itself isn't wrapped in SectionReveal (PRD 7.1) - it's the first
 // thing visible on load, there's no scroll position to reveal it from.
-// Phase 3 adds the canvas particle background here (PRD 7.2).
 export function Hero() {
   return (
     <section
       id="top"
-      className="section-pad flex min-h-[90vh] flex-col justify-center px-6"
+      className="section-pad relative flex min-h-[90vh] flex-col justify-center overflow-hidden px-6"
     >
-      <div className="mx-auto w-full max-w-6xl">
+      <ParticleField />
+      <div className="relative z-10 mx-auto w-full max-w-6xl">
         <p className="mb-4 font-mono text-sm text-text-tertiary">
           {siteConfig.name}
         </p>
