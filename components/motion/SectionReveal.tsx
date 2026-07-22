@@ -4,6 +4,12 @@ import { useLayoutEffect, useRef } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { themeColors, themeStyle, type SectionTheme } from "@/lib/theme-colors";
+import {
+  setRevealProgress,
+  registerSectionFlap,
+  unregisterSectionFlap,
+  setRowRevealProgress,
+} from "@/lib/particle-store";
 
 let registered = false;
 
@@ -17,6 +23,14 @@ type SectionRevealProps = {
   // as a transition FROM the previous section's color INTO this one's,
   // not just this section flashing its own (matching) color at itself.
   prevTheme: SectionTheme;
+  // Matches the id passed to this section's own useParticleTarget call (see
+  // SectionSplit) - lets this component report its flap-reveal progress so
+  // <ParticleSystem/> can blend particle color in step with the actual
+  // visible background instead of switching the instant this section wins
+  // geometric dominance. Optional: sections with no matching particle
+  // target (there are none today, but keep this from being load-bearing)
+  // simply skip reporting.
+  id?: string;
 };
 
 // PRD Section 7.1: pinned, scrub-driven row reveal on desktop with motion
@@ -33,9 +47,10 @@ type SectionRevealProps = {
 export function SectionReveal({
   children,
   className,
-  rows = 6,
+  rows = 20,
   theme,
   prevTheme,
+  id,
 }: SectionRevealProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const flapsRef = useRef<HTMLDivElement[]>([]);
@@ -49,6 +64,14 @@ export function SectionReveal({
 
     const container = containerRef.current;
     if (!container) return;
+
+    // Registered unconditionally (both matchMedia branches below run inside
+    // the same mount) so <ParticleSystem/> always has a live container rect
+    // and row count to bank on, regardless of which branch actually drives
+    // the flaps.
+    if (id) {
+      registerSectionFlap({ id, el: container, rows, theme, prevTheme });
+    }
 
     const ctx = gsap.context(() => {
       const mm = gsap.matchMedia();
@@ -67,19 +90,42 @@ export function SectionReveal({
             autoAlpha: 1,
             scaleY: 1,
           });
+          // Flaps start fully covering - this section's real background
+          // isn't visible yet, so the particle field shouldn't be treating
+          // it as revealed either.
+          if (id) {
+            setRevealProgress(id, 0);
+            setRowRevealProgress(id, flapsRef.current.map(() => 0));
+          }
 
           const tl = gsap.timeline({
             scrollTrigger: {
               trigger: container,
-              start: "top 80%",
-              end: "top 20%",
+              start: "top 70%",
+              end: "top 0%",
               scrub: 0.5,
+              // self.progress is a single scalar for the WHOLE staggered
+              // timeline, so on its own it can only describe an average
+              // reveal state - some rows may already be fully open while
+              // others haven't started. Reading each row's own live scaleY
+              // instead (rather than re-deriving per-row timing from the
+              // stagger/duration constants) is exact regardless of easing,
+              // and is what lets <ParticleSystem/> color each particle by
+              // the row actually behind it instead of a canvas-wide guess.
+              onUpdate: (self) => {
+                if (!id) return;
+                setRevealProgress(id, self.progress);
+                setRowRevealProgress(
+                  id,
+                  flapsRef.current.map((el) => 1 - (gsap.getProperty(el, "scaleY") as number)),
+                );
+              },
             },
           });
 
           tl.to(flapsRef.current, {
             scaleY: 0,
-            stagger: 0.06,
+            stagger: 0.14,
             ease: "none",
           });
 
@@ -96,6 +142,12 @@ export function SectionReveal({
         "(max-width: 767px), (prefers-reduced-motion: reduce)",
         () => {
           gsap.set(flapsRef.current, { autoAlpha: 0 });
+          // No flap ever covers this section on this branch, so its real
+          // background is always the visible one - report fully revealed.
+          if (id) {
+            setRevealProgress(id, 1);
+            setRowRevealProgress(id, flapsRef.current.map(() => 1));
+          }
           gsap.fromTo(
             container,
             { autoAlpha: 0, y: 16 },
@@ -117,7 +169,10 @@ export function SectionReveal({
       return () => mm.revert();
     }, container);
 
-    return () => ctx.revert();
+    return () => {
+      ctx.revert();
+      if (id) unregisterSectionFlap(id);
+    };
   }, []);
 
   return (

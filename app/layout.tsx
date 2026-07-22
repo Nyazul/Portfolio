@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+// Suppress missing type declarations for side-effect CSS import
+// @ts-ignore
 import "./globals.css";
 import { Nav } from "@/components/Nav";
 import { Footer } from "@/components/Footer";
+import { ParticleSystem } from "@/components/motion/ParticleSystem";
 import { siteConfig, siteUrl } from "@/lib/site-config";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
@@ -45,6 +48,7 @@ export default function RootLayout({
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(personJsonLd) }}
         />
+        <ParticleSystem />
         <Nav />
         {children}
         <Footer />

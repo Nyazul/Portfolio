@@ -48,10 +48,10 @@ function rectOutlinePoints(x: number, y: number, w: number, h: number, perSide: 
 // (PRD 7.2) - reused here as the Architecture section's own converge shape.
 const archNodes = [
   { cx: 0.5, cy: 0.28 },
-  { cx: 0.28, cy: 0.52 },
-  { cx: 0.72, cy: 0.52 },
-  { cx: 0.36, cy: 0.78 },
-  { cx: 0.64, cy: 0.78 },
+  { cx: 0.28, cy: 0.48 },
+  { cx: 0.72, cy: 0.48 },
+  { cx: 0.36, cy: 0.66 },
+  { cx: 0.64, cy: 0.66 },
 ];
 const archEdges: [number, number][] = [
   [0, 1],
@@ -92,10 +92,10 @@ const stackShape: Point[] = [
 
 // Experience: a simple timeline mark - a path with milestone nodes.
 const experienceShape: Point[] = [
-  ...linePoints(0.25, 0.5, 0.75, 0.5, 40),
+  ...linePoints(0.25, 0.5, 0.85, 0.5, 40),
   ...circlePoints(0.25, 0.5, 0.028, 16),
-  ...circlePoints(0.5, 0.5, 0.028, 16),
-  ...circlePoints(0.75, 0.5, 0.028, 16),
+  ...circlePoints(0.55, 0.5, 0.028, 16),
+  ...circlePoints(0.85, 0.5, 0.028, 16),
 ];
 
 // Contact: a simple envelope mark.

@@ -1,17 +1,25 @@
+"use client";
+
 import { siteConfig } from "@/lib/site-config";
 import { MagneticHover } from "@/components/motion/MagneticHover";
-import { ParticleField } from "@/components/motion/ParticleField";
+import { useParticleTarget } from "@/lib/hooks/use-particle-target";
 
 // Hero itself isn't wrapped in SectionReveal (PRD 7.1) - it's the first
 // thing visible on load, there's no scroll position to reveal it from.
+//
+// Registered with shapePoints: null - per the brief, the first section
+// keeps particles scattered rather than converging into a shape; sections
+// after this one are the first to actually form something.
 export function Hero() {
+  const targetRef = useParticleTarget("top", "dark", null);
+
   return (
     <section
       id="top"
       className="section-pad relative flex min-h-[90vh] flex-col justify-center overflow-hidden px-6"
     >
-      <ParticleField />
-      <div className="relative z-10 mx-auto w-full max-w-6xl">
+      <div ref={targetRef} className="absolute inset-0 z-0" aria-hidden="true" />
+      <div className="relative z-[6] mx-auto w-full max-w-6xl">
         <p className="mb-4 font-mono text-sm text-text-tertiary">
           {siteConfig.name}
         </p>

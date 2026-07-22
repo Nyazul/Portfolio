@@ -16,22 +16,22 @@ export default function Home() {
   return (
     <main>
       <Hero />
-      <SectionReveal theme="light" prevTheme="dark">
+      <SectionReveal id="about" theme="light" prevTheme="dark">
         <About />
       </SectionReveal>
-      <SectionReveal theme="dark" prevTheme="light">
+      <SectionReveal id="architecture" theme="dark" prevTheme="light">
         <ArchitectureSection />
       </SectionReveal>
-      <SectionReveal theme="light" prevTheme="dark">
+      <SectionReveal id="work" theme="light" prevTheme="dark">
         <CaseStudies />
       </SectionReveal>
-      <SectionReveal theme="dark" prevTheme="light">
+      <SectionReveal id="stack" theme="dark" prevTheme="light">
         <StackMetrics />
       </SectionReveal>
-      <SectionReveal theme="light" prevTheme="dark">
+      <SectionReveal id="experience" theme="light" prevTheme="dark">
         <ExperienceTimeline />
       </SectionReveal>
-      <SectionReveal theme="dark" prevTheme="light">
+      <SectionReveal id="contact" theme="dark" prevTheme="light">
         <Contact />
       </SectionReveal>
     </main>
