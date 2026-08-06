@@ -1,4 +1,4 @@
-import { architectureNodes } from "@/lib/architecture-nodes";
+import { architectureNodes, type NodeVisual } from "@/lib/architecture-nodes";
 
 export type Vec3 = [number, number, number];
 
@@ -10,6 +10,7 @@ export type SceneNode = {
   position: Vec3;
   // App Server is the fixed hub - larger, non-orbiting, not a click target.
   isHub: boolean;
+  visual: NodeVisual;
 };
 
 export type SceneEdge = {
@@ -61,6 +62,7 @@ export const sceneNodes: SceneNode[] = [
     caseStudySlug: hubNode.caseStudySlug,
     position: [0, 0, 0],
     isHub: true,
+    visual: hubNode.visual,
   },
   ...orbitOrder.map((node, i) => ({
     id: node.id,
@@ -75,6 +77,7 @@ export const sceneNodes: SceneNode[] = [
       Y_JITTER[i] ?? 0,
     ),
     isHub: false,
+    visual: node.visual,
   })),
 ];
 

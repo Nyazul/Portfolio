@@ -10,7 +10,13 @@
     "signal": "#E5E5E5",
     "signal-dim": "#8A8A8A",
     "inverse-bg": "#F5F5F5",
-    "inverse-text": "#0A0A0A"
+    "inverse-text": "#0A0A0A",
+    "flow-request": "#D9D2C5",
+    "flow-background": "#C3CDD4",
+    "accent-cache": "#6E9478",
+    "accent-warm": "#B39B63",
+    "accent-database": "#A08A6E",
+    "accent-monitor": "#5E8F94"
   },
   "type": {
     "font-display": "\"Neue Montreal\", \"Inter\", sans-serif",
