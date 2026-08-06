@@ -6,7 +6,8 @@
     "dev": "NODE_ENV=development next dev",
     "build": "NODE_ENV=production next build",
     "start": "NODE_ENV=production next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "github:snapshot": "node scripts/generate-github-snapshot.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.7",
