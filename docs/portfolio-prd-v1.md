@@ -1,5 +1,13 @@
 # Nyazul Ansari — Portfolio: PRD & Build Spec (v2)
 
+> **Living status has moved to the repo root [`README.md`](../README.md).**
+> This doc is the original vision/spec — design tokens, content, IA, the
+> phase plan — kept as-written for historical reference and rationale.
+> It does **not** reflect current build status; check the README first.
+> The Phase 4 3D visualizer specifically outgrew this doc's Section 6.3/7.3
+> sketch — see [`architecture-diagram-enhancement-spec.md`](./architecture-diagram-enhancement-spec.md)
+> for what actually got built there.
+
 **Owner:** Nyazul Ansari
 **Purpose of this doc:** Single source of truth for opencode + opendesign mcp to build from. Contains IA, design tokens, motion architecture, data schemas, and drafted content.
 **Scope decision:** Phased build — see Section 2. Bundling the 3D visualizer, particle system, and GSAP transitions into one pass was too much single-pass risk; they're now split across phases so the site is always in a deployable state.
