@@ -106,8 +106,8 @@ bars with a "Live GitHub stats — Phase 4" placeholder label. Nothing has
 been built here: no API route, no fetch logic, no caching. Per PRD Section
 9.4, this needs:
 - A server-side Route Handler (never client-side — the token can't be
-  exposed) fetching public repo count / language share / contribution
-  calendar from GitHub's API using an authenticated fine-grained PAT
+  exposed) fetching public repo count / contribution calendar from
+  GitHub's API using an authenticated fine-grained PAT
   (`GITHUB_TOKEN` env var already scaffolded in `.env.example`, currently
   empty — you'll need to generate one: read-only, public-metadata scope,
   explicit expiration).

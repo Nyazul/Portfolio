@@ -217,7 +217,8 @@ Each card: title, 2–3 sentence excerpt (above), stack tags, link into a dedica
 ### 6.5 Stack & Metrics (bklit-style) — live GitHub data, Phase 4
 Use `bklit-ui` components directly rather than rebuilding chart primitives.
 
-- Live-fetched: public repo count, top languages by byte share across repos, contribution calendar.
+- Live-fetched: public repo count and contribution calendar (rendered as a
+  days-active ring chart plus the contribution heatmap).
 - Self-assessed (static, labeled as such): a stack proficiency chart (Java/Spring, PostgreSQL, Kafka, React, Docker) — don't dress this up as "live" data, it isn't.
 - See Section 9.4 for the fetch/cache/fallback architecture — this section must never render a broken or empty state if GitHub's API is unavailable or rate-limited.
 
@@ -376,7 +377,6 @@ Extract directly from Section 4's JSON block into its own file at build time —
 {
   "fetchedAt": "2026-07-17T10:00:00Z",
   "publicRepoCount": 0,
-  "topLanguages": [{ "name": "Java", "byteShare": 0.0 }],
   "contributionCalendar": [{ "date": "2026-07-01", "count": 0 }]
 }
 ```

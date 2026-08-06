@@ -3,11 +3,6 @@ import fallbackSnapshot from "./github-metrics-fallback.json";
 const GITHUB_USERNAME = "Nyazul";
 const GRAPHQL_ENDPOINT = "https://api.github.com/graphql";
 
-export type LanguageShare = {
-  name: string;
-  byteShare: number; // 0..1
-};
-
 export type ContributionDay = {
   date: string; // YYYY-MM-DD
   count: number;
@@ -16,7 +11,6 @@ export type ContributionDay = {
 export type GithubMetricsSnapshot = {
   fetchedAt: string; // ISO timestamp
   publicRepoCount: number;
-  topLanguages: LanguageShare[];
   contributionCalendar: ContributionDay[];
   totalContributions: number;
 };
@@ -25,11 +19,10 @@ export type GithubMetricsResult =
   | { available: true; source: "live" | "fallback"; data: GithubMetricsSnapshot }
   | { available: false };
 
-// GraphQL is required for the contribution calendar (not exposed via REST),
-// and since we need auth for that anyway we use it for repos/languages too -
-// one round trip instead of N REST calls per repo. Capped at the 100 most
-// recently pushed public, non-fork repos owned by the account; fine for a
-// portfolio-sized account, would need pagination past that.
+// GraphQL is required for the contribution calendar (not exposed via REST).
+// The repository block only needs totalCount for the public-repo stat - kept
+// minimal (capped at 100; fine for a portfolio-sized account). We no longer
+// fetch per-repo languages (the "top languages by byte share" chart was cut).
 const QUERY = `
   query($login: String!) {
     user(login: $login) {
@@ -41,16 +34,6 @@ const QUERY = `
         orderBy: { field: PUSHED_AT, direction: DESC }
       ) {
         totalCount
-        nodes {
-          languages(first: 10, orderBy: { field: SIZE, direction: DESC }) {
-            edges {
-              size
-              node {
-                name
-              }
-            }
-          }
-        }
       }
       contributionsCollection {
         contributionCalendar {
@@ -67,18 +50,11 @@ const QUERY = `
   }
 `;
 
-type GraphQLRepoNode = {
-  languages: {
-    edges: { size: number; node: { name: string } }[];
-  };
-};
-
 type GraphQLResponse = {
   data?: {
     user: {
       repositories: {
         totalCount: number;
-        nodes: GraphQLRepoNode[];
       };
       contributionsCollection: {
         contributionCalendar: {
@@ -92,27 +68,6 @@ type GraphQLResponse = {
   };
   errors?: { message: string }[];
 };
-
-function aggregateLanguages(nodes: GraphQLRepoNode[]): LanguageShare[] {
-  const bytesByLanguage = new Map<string, number>();
-
-  for (const repo of nodes) {
-    for (const edge of repo.languages.edges) {
-      bytesByLanguage.set(
-        edge.node.name,
-        (bytesByLanguage.get(edge.node.name) ?? 0) + edge.size,
-      );
-    }
-  }
-
-  const totalBytes = [...bytesByLanguage.values()].reduce((a, b) => a + b, 0);
-  if (totalBytes === 0) return [];
-
-  return [...bytesByLanguage.entries()]
-    .map(([name, bytes]) => ({ name, byteShare: bytes / totalBytes }))
-    .sort((a, b) => b.byteShare - a.byteShare)
-    .slice(0, 6);
-}
 
 /**
  * Fetches live metrics from the GitHub GraphQL API. Throws on any failure
@@ -158,7 +113,6 @@ export async function fetchLiveGithubMetrics(): Promise<GithubMetricsSnapshot> {
   return {
     fetchedAt: new Date().toISOString(),
     publicRepoCount: repositories.totalCount,
-    topLanguages: aggregateLanguages(repositories.nodes),
     contributionCalendar: calendar.weeks.flatMap((week) =>
       week.contributionDays.map((day) => ({
         date: day.date,

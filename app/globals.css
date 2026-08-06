@@ -18,6 +18,72 @@
 
   --ease-standard: cubic-bezier(0.65, 0, 0.35, 1);
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Bklit UI chart tokens - Tailwind-recognized aliases so text-chart-label,
+     bg-chart-tooltip-background, etc. resolve. Raw --chart-* values live in
+     the :root block below (single source of truth, mapped onto the
+     palette above rather than introducing new colors). */
+  --color-chart-label: var(--chart-label);
+  --color-chart-tooltip-background: var(--chart-tooltip-background);
+  --color-chart-tooltip-foreground: var(--chart-tooltip-foreground);
+  --color-chart-tooltip-muted: var(--chart-tooltip-muted);
+}
+
+:root {
+  /* Bklit UI (bklit.com) chart component theming - see lib/github-metrics.ts
+     consumers in components/StackMetrics.tsx. Mapped onto the palette above
+     so charts stay monochrome instead of introducing new colors. */
+  --chart-background: var(--color-bg-elevated);
+  --chart-foreground: var(--color-text-primary);
+  --chart-foreground-muted: var(--color-text-secondary);
+  --chart-label: var(--color-text-tertiary);
+
+  --chart-line-primary: var(--color-signal);
+  --chart-line-secondary: var(--color-signal-dim);
+  --chart-crosshair: var(--color-signal-dim);
+  --chart-grid: var(--color-border);
+
+  --chart-indicator-color: var(--color-signal);
+  --chart-indicator-secondary-color: var(--color-signal-dim);
+
+  --chart-marker-background: var(--color-surface);
+  --chart-marker-border: var(--color-border);
+  --chart-marker-foreground: var(--color-text-primary);
+  --chart-marker-badge-background: var(--color-signal);
+  --chart-marker-badge-foreground: var(--color-inverse-text);
+
+  --chart-segment-background: var(--color-surface);
+  --chart-segment-line: var(--color-border);
+  --chart-brush-border: var(--color-border);
+
+  --chart-tooltip-background: var(--color-surface);
+  --chart-tooltip-foreground: var(--color-text-primary);
+  --chart-tooltip-muted: var(--color-text-tertiary);
+
+  /* Multi-series data colors */
+  --chart-1: var(--color-signal);
+  --chart-2: var(--color-signal-dim);
+  --chart-3: var(--color-text-secondary);
+  --chart-4: var(--color-text-tertiary);
+  --chart-5: var(--color-border);
+
+  /* Sequential scale for the contribution heatmap (01 = empty, 05 = highest) */
+  --chart-scale-01: var(--color-surface);
+  --chart-scale-02: #3D3D3D;
+  --chart-scale-03: #5C5C5C;
+  --chart-scale-04: var(--color-signal-dim);
+  --chart-scale-05: var(--color-signal);
+  --chart-scale-pattern-color: var(--color-border);
+
+  /* Ring/gauge/radar tracks (unused by the charts currently installed, kept
+     for parity with Bklit's documented theming contract) */
+  --border: var(--color-border);
+
+  /* Bare shadcn-convention tokens a few chart internals fall back to
+     (hover label color, loading shimmer) - aliased onto the same palette. */
+  --background: var(--color-bg);
+  --foreground: var(--color-text-primary);
+  --muted-foreground: var(--color-text-tertiary);
 }
 
 html {

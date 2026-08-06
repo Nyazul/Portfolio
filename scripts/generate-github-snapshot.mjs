@@ -35,14 +35,6 @@ const QUERY = `
         orderBy: { field: PUSHED_AT, direction: DESC }
       ) {
         totalCount
-        nodes {
-          languages(first: 10, orderBy: { field: SIZE, direction: DESC }) {
-            edges {
-              size
-              node { name }
-            }
-          }
-        }
       }
       contributionsCollection {
         contributionCalendar {
@@ -58,24 +50,6 @@ const QUERY = `
     }
   }
 `;
-
-function aggregateLanguages(nodes) {
-  const bytesByLanguage = new Map();
-  for (const repo of nodes) {
-    for (const edge of repo.languages.edges) {
-      bytesByLanguage.set(
-        edge.node.name,
-        (bytesByLanguage.get(edge.node.name) ?? 0) + edge.size,
-      );
-    }
-  }
-  const totalBytes = [...bytesByLanguage.values()].reduce((a, b) => a + b, 0);
-  if (totalBytes === 0) return [];
-  return [...bytesByLanguage.entries()]
-    .map(([name, bytes]) => ({ name, byteShare: bytes / totalBytes }))
-    .sort((a, b) => b.byteShare - a.byteShare)
-    .slice(0, 6);
-}
 
 async function main() {
   const token = process.env.GITHUB_TOKEN;
@@ -112,7 +86,6 @@ async function main() {
   const snapshot = {
     fetchedAt: new Date().toISOString(),
     publicRepoCount: repositories.totalCount,
-    topLanguages: aggregateLanguages(repositories.nodes),
     contributionCalendar: calendar.weeks.flatMap((week) =>
       week.contributionDays.map((day) => ({
         date: day.date,

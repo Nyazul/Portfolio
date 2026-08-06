@@ -1,3 +1,16 @@
+import { Bar } from "@/components/charts/bar";
+import { BarChart } from "@/components/charts/bar-chart";
+import { BarYAxis } from "@/components/charts/bar-y-axis";
+import {
+  type HeatmapColumn,
+  HeatmapCells,
+  HeatmapChart,
+  HeatmapLegend,
+  HeatmapTooltip,
+  HeatmapXAxis,
+} from "@/components/charts/heatmap";
+import { RingChart } from "@/components/charts/ring-chart";
+import { ChartTooltip } from "@/components/charts/tooltip";
 import { SectionSplit } from "@/components/motion/SectionSplit";
 import { sectionShapes } from "@/lib/particle-shapes";
 import { getGithubMetrics } from "@/lib/github-metrics";
@@ -19,24 +32,25 @@ function formatAsOf(iso: string) {
 }
 
 // Chunks the flat, chronologically-ordered contribution list back into
-// 7-day columns (weeks) for the heatmap grid - see lib/github-metrics.ts,
+// 7-day HeatmapColumn[] for @bklit/heatmap-chart - see lib/github-metrics.ts,
 // which flattens week-by-week in order, so simple 7-wide chunking recovers
 // the original week structure without carrying week indices through JSON.
-function toWeeks<T,>(days: T[]): T[][] {
-  const weeks: T[][] = [];
+function toHeatmapColumns(
+  days: { date: string; count: number }[]
+): HeatmapColumn[] {
+  const columns: HeatmapColumn[] = [];
   for (let i = 0; i < days.length; i += 7) {
-    weeks.push(days.slice(i, i + 7));
+    const week = days.slice(i, i + 7);
+    columns.push({
+      bin: columns.length,
+      bins: week.map((day, row) => ({
+        count: day.count,
+        bin: row,
+        date: new Date(day.date),
+      })),
+    });
   }
-  return weeks;
-}
-
-function intensity(count: number, max: number) {
-  if (count === 0 || max === 0) return 0.08;
-  const ratio = count / max;
-  if (ratio > 0.75) return 1;
-  if (ratio > 0.5) return 0.75;
-  if (ratio > 0.25) return 0.5;
-  return 0.3;
+  return columns;
 }
 
 async function GithubLiveStats() {
@@ -51,74 +65,59 @@ async function GithubLiveStats() {
   }
 
   const { data, source } = result;
-  const maxDay = Math.max(0, ...data.contributionCalendar.map((d) => d.count));
-  const weeks = toWeeks(data.contributionCalendar);
+  const heatmapColumns = toHeatmapColumns(data.contributionCalendar);
+
+  // "Days active in the past year" is the only honest ratio we can chart from
+  // the calendar without inventing a max/target: days with at least one
+  // contribution, out of the total days GitHub reports for the past year
+  // (356–371 depending on week alignment). Derived purely from real counts.
+  const calendarDays = data.contributionCalendar.length;
+  const activeDays = data.contributionCalendar.filter((d) => d.count > 0).length;
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-wrap items-baseline gap-x-8 gap-y-2">
-        <div>
+      <div className="flex flex-wrap items-center gap-x-10 gap-y-6">
+        {/* Public repos: a plain stat number. There's no honest denominator to
+            chart this against, so a ring/gauge would just be dressing a fake
+            ratio — a number is the truthful, readable form here. */}
+        <div className="flex items-baseline gap-2">
           <div className="font-mono text-2xl text-text-primary">
             {data.publicRepoCount}
           </div>
           <div className="text-xs text-text-tertiary">Public repos</div>
         </div>
-        <div>
-          <div className="font-mono text-2xl text-text-primary">
-            {data.totalContributions}
-          </div>
-          <div className="text-xs text-text-tertiary">
-            Contributions, past year
-          </div>
-        </div>
+
+        {/* Contributions: a ring of days active in the past year — a real
+            ratio (days with ≥1 contribution / total calendar days), not a
+            fabricated max. Same data as the calendar below. */}
+        {calendarDays > 0 && (
+          <RingChart
+            value={activeDays}
+            total={calendarDays}
+            label="days active"
+            caption={`of ${calendarDays} days, past year`}
+            ariaLabel={`${activeDays} days active out of ${calendarDays} days in the past year`}
+          />
+        )}
       </div>
 
-      {data.topLanguages.length > 0 && (
-        <div className="max-w-2xl space-y-3">
-          <div className="text-xs text-text-tertiary">
-            Top languages by byte share
-          </div>
-          {data.topLanguages.map((lang) => (
-            <div key={lang.name}>
-              <div className="mb-1.5 flex justify-between text-sm text-text-secondary">
-                <span>{lang.name}</span>
-                <span className="font-mono text-text-tertiary">
-                  {Math.round(lang.byteShare * 100)}%
-                </span>
-              </div>
-              <div className="h-px w-full bg-border">
-                <div
-                  className="h-px bg-signal"
-                  style={{ width: `${lang.byteShare * 100}%` }}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {weeks.length > 0 && (
+      {heatmapColumns.length > 0 && (
         <div>
           <div className="mb-2 text-xs text-text-tertiary">
             Contribution calendar
           </div>
           <div
-            className="flex gap-[3px] overflow-x-auto pb-1"
-            role="img"
             aria-label={`${data.totalContributions} contributions in the past year`}
+            role="img"
           >
-            {weeks.map((week, wi) => (
-              <div key={wi} className="flex flex-col gap-[3px]">
-                {week.map((day, di) => (
-                  <div
-                    key={di}
-                    className="h-[10px] w-[10px] bg-signal"
-                    style={{ opacity: intensity(day.count, maxDay) }}
-                    title={`${day.date}: ${day.count} contribution${day.count === 1 ? "" : "s"}`}
-                  />
-                ))}
-              </div>
-            ))}
+            <HeatmapChart aspectRatio="5 / 1" data={heatmapColumns}>
+              <HeatmapCells />
+              <HeatmapXAxis />
+              <HeatmapTooltip />
+            </HeatmapChart>
+            <div className="mt-2 flex justify-end">
+              <HeatmapLegend />
+            </div>
           </div>
         </div>
       )}
@@ -134,9 +133,9 @@ async function GithubLiveStats() {
 }
 
 // Phase 1: self-assessed static bars, labeled as such.
-// Phase 4: live GitHub data (repo count, language share, contribution
-// calendar) added below via a server-side, hourly-cached fetch with a
-// cached-snapshot fallback - see lib/github-metrics.ts and PRD Section 9.4.
+// Phase 4: live GitHub data (public repo count, days-active contribution
+// ring, contribution calendar) below via a server-side, hourly-cached fetch
+// with a cached-snapshot fallback - see lib/github-metrics.ts and PRD 9.4.
 // That data is never mocked; an honest "unavailable" beats a fake number.
 export function StackMetrics() {
   return (
@@ -146,23 +145,23 @@ export function StackMetrics() {
         <p className="text-sm text-text-tertiary">Live GitHub stats</p>
       </div>
 
-      <div className="mb-12 max-w-2xl space-y-5">
-        {stack.map((item) => (
-          <div key={item.name}>
-            <div className="mb-2 flex justify-between text-sm text-text-secondary">
-              <span>{item.name}</span>
-              <span className="font-mono text-text-tertiary">
-                {item.level}%
-              </span>
-            </div>
-            <div className="h-px w-full bg-border">
-              <div
-                className="h-px bg-signal"
-                style={{ width: `${item.level}%` }}
-              />
-            </div>
-          </div>
-        ))}
+      <div className="mb-12 max-w-2xl">
+        <BarChart
+          aspectRatio="3 / 2"
+          data={stack.map((item) => ({ name: item.name, level: item.level }))}
+          margin={{ top: 8, right: 16, bottom: 8, left: 140 }}
+          orientation="horizontal"
+          xDataKey="name"
+        >
+          <Bar
+            dataKey="level"
+            fill="var(--chart-line-primary)"
+            lineCap="round"
+            minBarHeight={4}
+          />
+          <BarYAxis />
+          <ChartTooltip showDatePill={false} />
+        </BarChart>
         <p className="mt-6 text-xs text-text-tertiary">
           Self-assessed, not derived from any external metric.
         </p>

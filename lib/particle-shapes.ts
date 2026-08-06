@@ -83,11 +83,11 @@ const caseStudiesShape: Point[] = [
 
 // Stack: a simple bar-chart mark.
 const stackShape: Point[] = [
-  ...linePoints(0.3, 0.68, 0.7, 0.68, 24),
-  ...linePoints(0.36, 0.68, 0.36, 0.52, 16),
-  ...linePoints(0.46, 0.68, 0.46, 0.4, 16),
-  ...linePoints(0.56, 0.68, 0.56, 0.3, 16),
-  ...linePoints(0.66, 0.68, 0.66, 0.46, 16),
+  ...linePoints(0.2, 0.58, 0.7, 0.58, 24),
+  ...linePoints(0.26, 0.58, 0.26, 0.52, 16),
+  ...linePoints(0.39, 0.58, 0.39, 0.4, 16),
+  ...linePoints(0.52, 0.58, 0.52, 0.3, 16),
+  ...linePoints(0.65, 0.58, 0.65, 0.46, 16),
 ];
 
 // Experience: a simple timeline mark - a path with milestone nodes.
