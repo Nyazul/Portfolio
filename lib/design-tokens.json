@@ -49,6 +49,7 @@
   "radius": {
     "sm": "4px",
     "md": "8px",
-    "none": "0px"
+    "none": "0px",
+    "pill": "9999px"
   }
 }

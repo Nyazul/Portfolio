@@ -15,12 +15,19 @@ Two spec docs in `docs/`:
 
 ## Current status (as of this writing)
 
-**Phases 1–3 are committed and stable.** Phase 4 (3D architecture visualizer)
-is **built and passing lint/build, but sitting uncommitted in the working
-tree** — some of it was done directly against the repo (outside a Claude
-session) between the last commit and now. A new session's first move should
-be `git status` / `git diff` to see exactly what's staged vs not, review it,
-and commit — don't assume a clean tree.
+**Phases 1–4b are all committed and stable** (working tree clean):
+- Phase 1 — content & design system
+- Phase 2 — GSAP section-flip motion + magnetic hover
+- Phase 3 — particle system (every section)
+- Phase 4a — 3D architecture visualizer (`9a5f94b`)
+- Phase 4b — live GitHub metrics (`35e95f2`)
+
+The two genuinely outstanding things before this site is done are: (1) the
+**interactive QA pass** the 3D visualizer never got (static analysis only so far),
+and (2) the **environment/secrets** items in "Before this goes live" below —
+a real `GITHUB_TOKEN`, a real `RESEND_API_KEY`, and the domain pointing at
+Vercel. The contact form's email provider is wired (Resend) and degrades to
+log-only until `RESEND_API_KEY` is set.
 
 ### Phase 1 — content & design system ✅ committed
 All sections, `/work/[slug]` case-study routes, contact form (honeypot +
@@ -49,11 +56,11 @@ across every section:
   circle/arc/line primitives, never a real logo reproduction.
 - Kill switch: `NEXT_PUBLIC_ENABLE_PARTICLES`.
 
-### Phase 4a — 3D architecture visualizer: built, uncommitted, needs review
+### Phase 4a — 3D architecture visualizer ✅ committed
 The base visualizer (hub-and-satellite layout, hover/select, camera dolly,
 click-through to case studies, static-grid fallback) plus **all four**
-enhancements from `architecture-diagram-enhancement-spec.md` appear to be
-implemented:
+enhancements from `architecture-diagram-enhancement-spec.md` are implemented
+and committed (`9a5f94b`). The four enhancement features:
 
 | Feature | File(s) | Status |
 |---|---|---|
@@ -84,39 +91,38 @@ mounted. `.env.local` already has this flag set to `true` for local dev.
   wiring) to confirm presence — did **not** re-verify this interactively
   (no screenshot/click-through pass this session, unlike Phases 2–3).
 
-**What a new session should do with this, in order:**
-1. `git status` / `git diff` — see the actual uncommitted state, don't trust
-   this doc's snapshot if time has passed.
-2. Run it (`npm run dev`, ensure `.env.local` has `NEXT_PUBLIC_ENABLE_3D_VIZ=true`)
-   and manually walk the acceptance checklist at the bottom of
-   `architecture-diagram-enhancement-spec.md` — hover, click, keyboard-only
-   nav, Escape, flow chips, resize below 768px, toggle reduced-motion, throw
-   the flag to `false`. Nothing in this doc substitutes for actually looking
-   at it.
-3. Once verified, commit it (it's been sitting uncommitted across at least
-   one prior "mhdgyug" commit already — that name suggests an accidental/
-   auto-generated commit message upstream of this session; consider whether
-   history needs cleanup, e.g. `git commit --amend` on that message, before
-   pushing anywhere public).
-4. Then move to Phase 4b below.
+**Remaining action for Phase 4a — the interactive QA pass it never got:**
+1. Run it (`npm run dev` — `.env.local` already has
+   `NEXT_PUBLIC_ENABLE_3D_VIZ=true`) and manually walk the acceptance
+   checklist at the bottom of `architecture-diagram-enhancement-spec.md` —
+   hover, click, keyboard-only nav, Escape, flow chips, resize below 768px,
+   toggle reduced-motion, throw the flag to `false`. Nothing in this doc
+   substitutes for actually looking at it. This is the one outstanding item
+   for Phase 4a; the code itself is committed and lint/build-clean.
+2. Optional history hygiene: an early "mhdgyug" commit has an
+   accidental/auto-generated message — consider `git commit --amend` on it
+   before pushing anywhere public.
 
-### Phase 4b — live GitHub metrics: not started
-`components/StackMetrics.tsx` still shows only the static self-assessed
-bars with a "Live GitHub stats — Phase 4" placeholder label. Nothing has
-been built here: no API route, no fetch logic, no caching. Per PRD Section
-9.4, this needs:
-- A server-side Route Handler (never client-side — the token can't be
-  exposed) fetching public repo count / contribution calendar from
-  GitHub's API using an authenticated fine-grained PAT
-  (`GITHUB_TOKEN` env var already scaffolded in `.env.example`, currently
-  empty — you'll need to generate one: read-only, public-metadata scope,
-  explicit expiration).
-- Caching via `revalidate` or a Vercel Cron job writing to KV/Edge Config,
-  so the page never depends on GitHub's live uptime.
-- A mandatory cached-fallback render path if the live fetch fails or the
-  token expires — this must hit the same fallback as any other failure,
-  not a distinct unhandled error state (see PRD 9.4's exact JSON shape for
-  the cached snapshot).
+### Phase 4b — live GitHub metrics ✅ committed
+Build in `35e95f2`, per PRD Section 9.4:
+- `app/api/github-metrics/route.ts` (server-side only — the token is never
+  exposed client-side) → `lib/github-metrics.ts`, which fetches public repo
+  count, the contribution calendar, and a days-active total from the GitHub
+  GraphQL API using `GITHUB_TOKEN`, **hourly-cached** via Next's fetch
+  `revalidate: 3600`.
+- Mandatory fallback: any failure (missing/expired token, rate limit, network
+  error, malformed response) falls through to the committed snapshot
+  `lib/github-metrics-fallback.json`; if that hasn't been seeded yet either,
+  `StackMetrics.tsx` renders an honest "unavailable" rather than fake numbers
+  (same principle as the self-assessed bars).
+- `scripts/generate-github-snapshot.mjs` (`npm run github:snapshot`) is the
+  one-time/occasional generator for that fallback file — run locally with a
+  real token, never committed.
+
+**Remaining for Phase 4b — the live path isn't testable until a real token
+exists** (see "Before this goes live" below): `GITHUB_TOKEN` is still empty,
+so `lib/github-metrics-fallback.json` is also still empty (`fetchedAt: ""`),
+and the section reports "unavailable".
 
 ## Worth checking yourself (nobody has verified these on real devices)
 
@@ -131,19 +137,23 @@ been built here: no API route, no fetch logic, no caching. Per PRD Section
 ## Before this goes live
 
 - [x] Résumé at `public/Nyazul_Ansari_Resume.pdf`, linked from Nav/Footer
-- [ ] Commit and verify Phase 4a (3D visualizer) — see above
-- [ ] Build Phase 4b (live GitHub metrics) — see above
-- [ ] Wire an actual email provider in `app/api/contact/route.ts` (currently
-      validates and logs only — see the TODO in that file)
+- [x] Commit and verify Phase 4a (3D visualizer) — committed `9a5f94b`
+      (interactive QA pass still outstanding — see Phase 4a section above)
+- [x] Build Phase 4b (live GitHub metrics) — committed `35e95f2`
+      (live render still needs a real token)
+- [x] Update `.env.example` comment for `NEXT_PUBLIC_ENABLE_3D_VIZ` (no longer
+      says "not built yet")
+- [x] Wire an actual email provider in `app/api/contact/route.ts` — now sends
+      via Resend's REST API; degrades to validate+log when `RESEND_API_KEY`
+      is unset (still needs the real key set in Vercel, see below)
 - [ ] Generate the `GITHUB_TOKEN` PAT and set it in Vercel's env vars
       (needed for Phase 4b)
 - [ ] Point `nyazulansari.duckdns.org`'s CNAME at Vercel and add it as a
       custom domain in Vercel project settings (or swap in a purchased
       domain — `NEXT_PUBLIC_SITE_URL` is the only place it's referenced)
 - [ ] iOS Safari real-device check (see above)
-- [ ] Fix the two lint warnings noted above (trivial, low priority)
-- [ ] `.env.example`'s comment on `NEXT_PUBLIC_ENABLE_3D_VIZ` still says
-      "not built yet" — stale, update it once Phase 4a is committed
+- [ ] Re-run `npm run lint` and clear whatever warnings remain (trivial, low
+      priority; `Database.tsx`'s old unused-var warning is already gone)
 
 ## Development
 

@@ -1,13 +1,12 @@
 # Architecture Diagram Enhancement Spec
 
-> **Status: all four features below appear implemented** (confirmed via
-> static code inspection — grep for key markers, not an interactive
-> click-through) **but sitting uncommitted in the working tree** as of this
-> note. See the repo root [`README.md`](../README.md) "Phase 4a" section for
-> the current file-by-file status table and what still needs a manual
-> verification pass against the acceptance checklist at the bottom of this
-> doc. One deliberate deviation: Section 4.2's suggested hub glass material
-> was tried and reverted — see `components/three/nodes/Hub.tsx`'s comment.
+> **Status: committed** in `9a5f94b`, verified via `npm run lint` /
+> `npm run build` (both clean) and code review against the acceptance
+> checklist below — **but never interactively QA'd** (no click-through /
+> screenshot pass), so the checklist at the bottom of this doc is the
+> outstanding manual-verification item. One deliberate deviation:
+> Section 4.2's suggested hub glass material was tried and reverted — see
+> `components/three/nodes/Hub.tsx`'s comment.
 
 **Target files:** `components/three/ArchitectureCanvas.tsx`, `components/ArchitectureVisualizer3D.tsx`, `lib/architecture-scene.ts`, `lib/architecture-nodes.ts`
 **Stack:** React Three Fiber, drei, Three.js, Next.js 15 / React 19

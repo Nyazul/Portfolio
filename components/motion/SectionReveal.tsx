@@ -173,7 +173,10 @@ export function SectionReveal({
       ctx.revert();
       if (id) unregisterSectionFlap(id);
     };
-  }, []);
+    // Re-register if the section's identity or theming changes (they don't at
+    // runtime today, but they're read inside the effect so they belong in the
+    // dep array rather than being silently ignored).
+  }, [id, theme, prevTheme, rows]);
 
   return (
     <div

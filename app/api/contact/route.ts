@@ -11,6 +11,17 @@ function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
+// Resend REST endpoint - hit directly via fetch (same pattern as the GitHub
+// metrics route) so there's no extra SDK dependency to install/maintain.
+const RESEND_URL = "https://api.resend.com/emails";
+
+// Delivery envelope, overridable per-deployment. The From address must be a
+// domain you've verified in Resend, or the API rejects the send.
+const sendFrom =
+  process.env.CONTACT_FROM ??
+  "Portfolio Contact <onboarding@resend.dev>";
+const sendTo = process.env.CONTACT_TO ?? "ansarinyazul2003@gmail.com";
+
 export async function POST(req: NextRequest) {
   let payload: ContactPayload;
 
@@ -46,11 +57,50 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // TODO (before this goes live): wire an actual email provider (Resend,
-  // Postmark, or SMTP via Nodemailer) here. For now this only validates and
-  // logs server-side so the form doesn't silently break the build - nothing
-  // is sent yet. Track this in the repo so it isn't forgotten.
-  console.log("Contact form submission:", { name, email, message });
+  const apiKey = process.env.RESEND_API_KEY;
 
-  return NextResponse.json({ ok: true });
+  // No key configured: fall back to validating + logging (and still return
+  // ok so the form UX doesn't break), but flag it server-side so it's obvious
+  // sends aren't real. This is the pre-launch state until RESEND_API_KEY is set.
+  if (!apiKey) {
+    console.log(
+      "[contact] RESEND_API_KEY not set - validated but NOT emailing:",
+      { name, email, message },
+    );
+    return NextResponse.json({ ok: true });
+  }
+
+  try {
+    const res = await fetch(RESEND_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: sendFrom,
+        to: [sendTo],
+        reply_to: email,
+        subject: `Portfolio contact from ${name} <${email}>`,
+        text: `Name: ${name}\nEmail: ${email}\n\n${message}`,
+      }),
+    });
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      console.error(`[contact] Resend responded ${res.status}: ${body}`);
+      return NextResponse.json(
+        { error: "Message could not be sent. Please try again." },
+        { status: 502 },
+      );
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    console.error("[contact] Failed to send via Resend:", err);
+    return NextResponse.json(
+      { error: "Message could not be sent. Please try again." },
+      { status: 502 },
+    );
+  }
 }
