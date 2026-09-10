@@ -97,7 +97,7 @@ export function Nav() {
           aria-label="Primary"
           onMouseEnter={() => setIsHovering(true)}
           onMouseLeave={() => setIsHovering(false)}
-          className={`inline-flex max-w-[calc(100vw-2rem)] items-center justify-between rounded-full border border-border bg-bg-elevated/90 shadow-[0_8px_30px_rgba(0,0,0,0.3)] backdrop-blur-md transition-[padding,transform] duration-300 ease-[var(--ease-standard)] ${
+          className={`inline-flex max-w-[calc(100vw-2rem)] items-center justify-between rounded-full border border-border bg-black shadow-[0_8px_30px_rgba(0,0,0,0.3)] backdrop-blur-md transition-[padding,transform] duration-300 ease-[var(--ease-standard)] ${
             isCompact ? "scale-[0.98] px-4 py-2 md:px-5" : "scale-100 px-5 py-3 md:px-6 md:py-3.5"
           }`}
         >
