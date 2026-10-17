@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Link } from "next-view-transitions";
+import { Link } from "@/components/ViewTransitions";
 import { formatNoteDate, getNotes } from "@/lib/notes";
 import { siteConfig } from "@/lib/site-config";
 import { DraftBadge } from "@/components/DraftBadge";

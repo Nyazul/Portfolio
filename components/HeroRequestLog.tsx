@@ -8,7 +8,7 @@ import { usePrefersReducedMotion } from "@/lib/hooks/use-prefers-reduced-motion"
 // One live access-log line in the hero: the latest real request this page
 // made to /api/health, refreshed every poll. Shares the footer status
 // panel's poller (lib/health.ts) and links down to it.
-export function HeroRequestLog({ delay = 0 }: { delay?: number }) {
+export function HeroRequestLog({ delay = 0, ready = true }: { delay?: number; ready?: boolean }) {
   const ref = useRef<HTMLAnchorElement>(null);
   const inView = useInView(ref);
   const { samples, meta } = useHealth(inView);
@@ -22,7 +22,7 @@ export function HeroRequestLog({ delay = 0 }: { delay?: number }) {
       aria-label="Live health check of this site. Jump to the status panel."
       className="group mt-8 inline-flex max-w-full items-center gap-3 overflow-hidden font-mono text-xs text-text-tertiary transition-colors hover:text-text-primary"
       initial={prefersReducedMotion ? false : { opacity: 0 }}
-      animate={{ opacity: 1 }}
+      animate={ready ? { opacity: 1 } : undefined}
       transition={{ duration: 0.6, delay }}
     >
       <span className="shrink-0 rounded-sm border border-border px-1.5 py-0.5 text-[10px] uppercase tracking-wide group-hover:border-accent group-hover:text-accent">

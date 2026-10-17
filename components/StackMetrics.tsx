@@ -131,7 +131,7 @@ async function GithubLiveStats() {
 export function StackMetrics() {
   return (
     <SectionSplit id="stack" theme="dark" shapePoints={sectionShapes.stack} reverse>
-      <SectionHeading index="04" label="Stack" headline="Tools, honestly rated." />
+      <SectionHeading index="05" label="Stack" headline="Tools, honestly rated." />
 
       <div className="mb-16">
         <StackTiers />

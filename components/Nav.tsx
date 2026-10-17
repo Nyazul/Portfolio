@@ -14,9 +14,12 @@ import { usePrefersReducedMotion } from "@/lib/hooks/use-prefers-reduced-motion"
 const links = [
   { href: "/#about", label: "About" },
   { href: "/#architecture", label: "Architecture" },
-  { href: "/#work", label: "Work" },
-  { href: "/#stack", label: "Stack" },
-  { href: "/#principles", label: "Principles" },
+  { href: "/#projects", label: "Projects" },
+  { href: "/#work", label: "Case studies" },
+  // `wide`: only shown in the desktop pill from lg up - eight links don't
+  // fit beside the logo and Résumé at md. Still in the mobile menu and ⌘K.
+  { href: "/#stack", label: "Stack", wide: true },
+  { href: "/#principles", label: "Principles", wide: true },
   { href: "/#experience", label: "Experience" },
   { href: "/#contact", label: "Contact" },
 ];
@@ -141,7 +144,7 @@ export function Nav() {
               {links.map((link) => {
                 const isActive = activeId === sectionId(link.href);
                 return (
-                  <li key={link.href} className="shrink-0">
+                  <li key={link.href} className={`shrink-0 ${link.wide ? "max-lg:hidden" : ""}`}>
                     <MagneticHover strength={8}>
                       <Link
                         href={link.href}

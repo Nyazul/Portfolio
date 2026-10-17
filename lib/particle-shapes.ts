@@ -169,12 +169,58 @@ const contactShape: Point[] = [
   ...linePoints(0.72, 0.36, 0.5, 0.54, 22),
 ];
 
+// Projects: a server rack - three stacked units, each with status lights
+// and a vent line. Reads as "systems that run", distinct from the
+// architecture globe and the case-study document.
+const projectsShape: Point[] = [0.2, 0.42, 0.64].flatMap((y) => [
+  ...rectOutlinePoints(0.26, y, 0.48, 0.16, 18),
+  ...circlePoints(0.33, y + 0.08, 0.016, 10),
+  ...circlePoints(0.39, y + 0.08, 0.016, 10),
+  ...linePoints(0.48, y + 0.08, 0.67, y + 0.08, 14),
+]);
+
+// Every shape is drawn freehand in its own unit box, so raw extents and
+// centres differ wildly (the globe spans 88% of its box, the bar chart
+// half of it, off-centre). Normalising re-centres each one on (0.5, 0.5)
+// and scales it so its larger extent is SHAPE_SPAN - every section's mark
+// then reads at the same visual size and sits in the middle of its column.
+// 3D shapes spin about x = 0.5, so their width is the full radius in the
+// xz-plane and their x centre stays put.
+const SHAPE_SPAN = 0.62;
+
+function normalize(points: Point[], span = SHAPE_SPAN): Point[] {
+  const is3d = points.some((p) => p.z !== undefined);
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+  let radius = 0;
+  for (const p of points) {
+    minX = Math.min(minX, p.x);
+    maxX = Math.max(maxX, p.x);
+    minY = Math.min(minY, p.y);
+    maxY = Math.max(maxY, p.y);
+    radius = Math.max(radius, Math.hypot(p.x - 0.5, p.z ?? 0));
+  }
+  const cx = is3d ? 0.5 : (minX + maxX) / 2;
+  const cy = (minY + maxY) / 2;
+  const width = is3d ? radius * 2 : maxX - minX;
+  const scale = span / Math.max(width, maxY - minY);
+  return points.map((p) => ({
+    x: 0.5 + (p.x - cx) * scale,
+    y: 0.5 + (p.y - cy) * scale,
+    ...(p.z !== undefined ? { z: p.z * scale } : {}),
+  }));
+}
+
 export const sectionShapes: Record<string, Point[]> = {
-  about: aboutShape,
-  architecture: globeShape,
-  work: caseStudiesShape,
-  stack: stackShape,
-  principles: principlesShape,
-  experience: experienceShape,
-  contact: contactShape,
+  about: normalize(aboutShape),
+  architecture: normalize(globeShape, 0.66),
+  projects: normalize(projectsShape),
+  work: normalize(caseStudiesShape),
+  stack: normalize(stackShape),
+  principles: normalize(principlesShape),
+  // Long and thin: give it a little more width so it doesn't read as a dash.
+  experience: normalize(experienceShape, 0.66),
+  contact: normalize(contactShape),
 };

@@ -5,11 +5,11 @@ import { motion, useScroll, useTransform } from "motion/react";
 import { siteConfig } from "@/lib/site-config";
 import { MagneticHover } from "@/components/motion/MagneticHover";
 import { InvertBlobHover } from "@/components/motion/InvertBlobHover";
-import { VelocityMarquee } from "@/components/motion/VelocityMarquee";
 import { HeroRequestLog } from "@/components/HeroRequestLog";
 import { useParticleTarget } from "@/lib/hooks/use-particle-target";
 import { usePrefersReducedMotion } from "@/lib/hooks/use-prefers-reduced-motion";
 import { useDeviceTier } from "@/lib/device-tier";
+import { useIntroReady } from "@/lib/intro";
 
 // Hero itself isn't wrapped in SectionReveal (PRD 7.1) - it's the first
 // thing visible on load, there's no scroll position to reveal it from.
@@ -30,23 +30,14 @@ import { useDeviceTier } from "@/lib/device-tier";
 const REVEAL_STAGGER = 0.045;
 const REVEAL_DURATION = 1.1;
 
-const MARQUEE_ITEMS = [
-  "Java",
-  "Spring Boot",
-  "Apache Kafka",
-  "PostgreSQL",
-  "Spring Modulith",
-  "Multi-tenancy",
-  "Event-driven",
-  "Concurrency",
-  "AWS S3",
-  "Docker",
-];
 
 export function Hero() {
   const targetRef = useParticleTarget("top", "dark", null);
   const prefersReducedMotion = usePrefersReducedMotion();
   const tier = useDeviceTier();
+  // Hold the intro until the boot loader starts lifting (immediately when
+  // it's skipped), so the reveal is actually seen.
+  const ready = useIntroReady();
   const nameChars = siteConfig.name.split("");
   const introDelay = nameChars.length * REVEAL_STAGGER;
 
@@ -85,7 +76,7 @@ export function Hero() {
         <motion.p
           className="mb-8 inline-flex items-center gap-2.5 rounded-full border border-border px-3.5 py-1.5 font-mono text-xs text-text-secondary"
           initial={prefersReducedMotion ? false : { opacity: 0, y: -6 }}
-          animate={{ opacity: 1, y: 0 }}
+          animate={ready ? { opacity: 1, y: 0 } : undefined}
           transition={{ duration: 0.6, delay: 0.2, ease: "easeOut" }}
         >
           <span className="relative flex h-2 w-2">
@@ -105,7 +96,7 @@ export function Hero() {
                   <motion.span
                     className="inline-block"
                     initial={prefersReducedMotion ? false : { y: "110%" }}
-                    animate={{ y: "0%" }}
+                    animate={ready ? { y: "0%" } : undefined}
                     transition={{
                       duration: REVEAL_DURATION,
                       delay: i * REVEAL_STAGGER,
@@ -122,7 +113,7 @@ export function Hero() {
         <motion.p
           className="mt-5 font-mono text-sm text-text-tertiary md:text-base"
           initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
+          animate={ready ? { opacity: 1, y: 0 } : undefined}
           transition={{
             duration: 0.6,
             delay: introDelay + 0.2,
@@ -134,7 +125,7 @@ export function Hero() {
         <motion.p
           className="mt-6 max-w-xl text-lg text-text-secondary"
           initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
+          animate={ready ? { opacity: 1, y: 0 } : undefined}
           transition={{
             duration: 0.6,
             delay: introDelay + 0.35,
@@ -164,7 +155,7 @@ export function Hero() {
             href="#about"
             className="ml-auto hidden items-center gap-3 self-center font-mono text-xs text-text-tertiary transition-colors hover:text-text-primary md:flex"
             initial={prefersReducedMotion ? false : { opacity: 0 }}
-            animate={{ opacity: 1 }}
+            animate={ready ? { opacity: 1 } : undefined}
             transition={{ duration: 0.6, delay: introDelay + 0.6 }}
           >
             Scroll
@@ -173,12 +164,8 @@ export function Hero() {
             </span>
           </motion.a>
         </div>
-        <HeroRequestLog delay={introDelay + 0.8} />
+        <HeroRequestLog delay={introDelay + 0.8} ready={ready} />
       </motion.div>
-      <VelocityMarquee
-        items={MARQUEE_ITEMS}
-        className="absolute inset-x-0 bottom-6 z-[6] border-y border-border py-4 font-mono text-sm text-text-tertiary md:bottom-10"
-      />
     </section>
   );
 }

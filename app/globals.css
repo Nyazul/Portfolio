@@ -183,7 +183,7 @@ html.custom-cursor [contenteditable="true"] {
   .scroll-cue { animation: none; }
 }
 
-/* Route view transitions (next-view-transitions, see app/layout.tsx). The
+/* Route view transitions (components/ViewTransitions.tsx). The
    page itself crossfades quickly; named elements - case-study titles, the
    nav - morph between their old and new positions. */
 ::view-transition-old(root),
@@ -200,4 +200,36 @@ html.custom-cursor [contenteditable="true"] {
   ::view-transition-new(*) {
     animation: none !important;
   }
+}
+
+/* Boot loader (components/BootLoader.tsx). Hidden before first paint for
+   repeat visits / reduced motion via html[data-boot="skip"] (set by the
+   inline script in app/layout.tsx), and force-hidden after 5s as a
+   failsafe so it can never trap the page if JS stalls. */
+html[data-boot="skip"] #boot-loader {
+  display: none;
+}
+#boot-loader {
+  animation: boot-failsafe 0s linear 5s forwards;
+}
+@keyframes boot-failsafe {
+  to { visibility: hidden; opacity: 0; pointer-events: none; }
+}
+.boot-caret {
+  animation: boot-caret 1s steps(1) infinite;
+}
+@keyframes boot-caret {
+  50% { opacity: 0; }
+}
+
+/* Project architecture diagrams (components/project/ArchitectureJourney.tsx):
+   the active step's connections show a dash travelling along them. */
+.edge-flow {
+  animation: edge-flow 1.2s linear infinite;
+}
+@keyframes edge-flow {
+  to { stroke-dashoffset: -22; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .edge-flow { animation: none; }
 }

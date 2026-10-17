@@ -96,18 +96,19 @@ const notes: Note[] = [
       { type: "h2", text: "The half-fix that looks like a fix" },
       {
         type: "p",
-        text: "Moving the increment into SQL (SET used = used + 1) makes the write atomic, but the check still happens in Java against a stale read. You've traded a lost update for an over-quota row. The check and the write have to be the same statement.",
+        text: "Moving the increment into SQL (SET count = count + 1) makes the write atomic, but the check still happens in Java against a stale read. You've traded a lost update for an over-quota row, which is exactly where the system I work on sits today. The check and the write have to be the same statement.",
       },
       {
         type: "code",
         code: {
           lang: "sql",
           caption: "The invariant lives in the WHERE clause",
-          snippet: `UPDATE workspace_usage
-   SET used = used + :amount
+          snippet: `UPDATE workspace_usage_counters
+   SET count = count + :amount
  WHERE workspace_id = :workspaceId
-   AND metric       = :metric
-   AND used + :amount <= quota;
+   AND feature_key  = :feature
+   AND period_start = :periodStart
+   AND count + :amount <= :limit;
 -- 1 row: allowed. 0 rows: over quota.`,
         },
       },

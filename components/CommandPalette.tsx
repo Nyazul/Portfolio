@@ -19,7 +19,7 @@ type OutLine =
 
 type Suggestion = { line: string; description: string };
 
-const SECTIONS = ["about", "architecture", "work", "stack", "principles", "experience", "contact"];
+const SECTIONS = ["about", "architecture", "projects", "work", "stack", "principles", "experience", "contact"];
 const RESUME = "/Nyazul_Ansari_Resume.pdf";
 const MAX_SUGGESTIONS = 7;
 const PROMPT = "nyazul@portfolio:~$";
@@ -33,9 +33,11 @@ const WELCOME: OutLine[] = [
 // the live health endpoint - plus a few unlisted ones for the curious.
 export function CommandPalette({
   caseStudies,
+  projects,
   notes,
 }: {
   caseStudies: PaletteEntry[];
+  projects: PaletteEntry[];
   notes: PaletteEntry[];
 }) {
   const router = useRouter();
@@ -114,6 +116,8 @@ export function CommandPalette({
       { line: "help", description: "List commands" },
       { line: "whoami", description: "Who built this" },
       ...SECTIONS.map((s) => ({ line: `cd ${s}`, description: `Jump to ${s}` })),
+      { line: "ls projects/", description: "List projects" },
+      ...projects.map((p) => ({ line: `open projects/${p.slug}`, description: `${p.title}: architecture walkthrough` })),
       { line: "ls work/", description: "List case studies" },
       ...caseStudies.map((c) => ({ line: `open work/${c.slug}`, description: c.title })),
       ...(notes.length
@@ -132,7 +136,7 @@ export function CommandPalette({
       { line: "clear", description: "Clear the screen" },
       { line: "exit", description: "Close" },
     ],
-    [caseStudies, notes],
+    [caseStudies, projects, notes],
   );
 
   const query = input.trim().toLowerCase();
@@ -168,7 +172,7 @@ export function CommandPalette({
       case "help":
         out([
           ...suggestions
-            .filter((s) => !s.line.startsWith("open work/") && !s.line.startsWith("open notes/"))
+            .filter((s) => !/^open (work|notes|projects)\//.test(s.line))
             .map((s): OutLine => ({ kind: "text", text: `${s.line.padEnd(22, " ")}${s.description}` })),
           { kind: "text", text: "A few commands aren't listed.", tone: "muted" },
         ]);
@@ -191,7 +195,9 @@ export function CommandPalette({
       }
       case "ls": {
         const dir = arg.replace(/^~?\/?/, "");
-        if (dir === "work") {
+        if (dir === "projects") {
+          out(projects.map((p) => ({ kind: "link", text: `${p.slug}  ${p.title}`, href: `/projects/${p.slug}` })));
+        } else if (dir === "work") {
           out(caseStudies.map((c) => ({ kind: "link", text: `${c.slug}  ${c.title}`, href: `/work/${c.slug}` })));
         } else if (dir === "notes") {
           out(
@@ -222,6 +228,8 @@ export function CommandPalette({
         if (target === "notes") return navigate("/notes");
         const study = caseStudies.find((c) => target === `work/${c.slug}` || target === c.slug);
         if (study) return navigate(`/work/${study.slug}`);
+        const proj = projects.find((p) => target === `projects/${p.slug}`);
+        if (proj) return navigate(`/projects/${proj.slug}`);
         const note = notes.find((n) => target === `notes/${n.slug}`);
         if (note) return navigate(`/notes/${note.slug}`);
         out([{ kind: "text", text: `open: nothing called '${arg}'. Try \`ls work/\`.`, tone: "muted" }]);

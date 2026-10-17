@@ -115,7 +115,7 @@ export function QuotaRacePlayground() {
           Break it yourself
         </span>
         <span className="font-mono text-xs text-text-tertiary">
-          workspace_usage: used = 99, quota = {QUOTA} (one unit left)
+          usage counter: count = 99, limit = {QUOTA} (one unit left)
         </span>
       </figcaption>
 
@@ -251,16 +251,16 @@ export function QuotaRacePlayground() {
         <div className="grid gap-4 md:grid-cols-[200px_1fr]">
           {/* The row itself */}
           <div className="rounded-md border border-border bg-bg p-4 font-mono text-xs">
-            <p className="text-text-tertiary">workspace_usage</p>
+            <p className="text-text-tertiary">workspace_usage_counters</p>
             <dl className="mt-3 space-y-2">
               <div className="flex justify-between">
-                <dt className="text-text-tertiary">used</dt>
+                <dt className="text-text-tertiary">count</dt>
                 <dd className={`text-2xl leading-none ${used > QUOTA ? "text-accent" : "text-text-primary"}`}>
                   {used}
                 </dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-text-tertiary">quota</dt>
+                <dt className="text-text-tertiary">limit</dt>
                 <dd className="text-text-primary">{QUOTA}</dd>
               </div>
               <div className="flex justify-between border-t border-border pt-2">

@@ -5,10 +5,13 @@ import { Nav } from "@/components/Nav";
 import { Footer } from "@/components/Footer";
 import { Cursor } from "@/components/motion/Cursor";
 import { CommandPalette } from "@/components/CommandPalette";
+import { BootLoader } from "@/components/BootLoader";
+import { BOOT_SEEN_KEY } from "@/lib/boot";
 import { caseStudies } from "@/lib/case-studies";
 import { getNotes } from "@/lib/notes";
+import { projects } from "@/lib/projects";
 import { siteConfig, siteUrl } from "@/lib/site-config";
-import { ViewTransitions } from "next-view-transitions";
+import { ViewTransitions } from "@/components/ViewTransitions";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const jetbrains = JetBrains_Mono({
@@ -34,6 +37,11 @@ export const metadata: Metadata = {
   },
 };
 
+// Runs before first paint: skip the boot loader for anyone who has already
+// seen it this session, or who prefers reduced motion. Doing this in CSS via
+// a data attribute (rather than after hydration) means it never flashes.
+const bootDecisionScript = `try{if(sessionStorage.getItem(${JSON.stringify(BOOT_SEEN_KEY)})||matchMedia("(prefers-reduced-motion: reduce)").matches)document.documentElement.dataset.boot="skip"}catch(e){document.documentElement.dataset.boot="skip"}`;
+
 const personJsonLd = {
   "@context": "https://schema.org",
   "@type": "Person",
@@ -47,15 +55,26 @@ const personJsonLd = {
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  // ViewTransitions: route changes made through next-view-transitions'
-  // <Link> run inside document.startViewTransition, so elements sharing a
-  // view-transition-name (a case-study title on the home list and the same
-  // title on its page) morph between routes. Browsers without the API just
-  // navigate normally.
+  // ViewTransitions: route changes made through its <Link> run inside
+  // document.startViewTransition, so elements sharing a view-transition-name
+  // (a case-study title on the home list and the same title on its page)
+  // morph between routes. Browsers without the API just navigate normally.
   return (
     <ViewTransitions>
-      <html lang="en" className={`${inter.variable} ${jetbrains.variable}`}>
+      <html
+        lang="en"
+        className={`${inter.variable} ${jetbrains.variable}`}
+        // The boot script writes data-boot before hydration.
+        suppressHydrationWarning
+      >
+        <head>
+          <script dangerouslySetInnerHTML={{ __html: bootDecisionScript }} />
+          <noscript>
+            <style>{`#boot-loader{display:none!important}`}</style>
+          </noscript>
+        </head>
         <body>
+          <BootLoader />
           <a href="#main" className="skip-link">
             Skip to content
           </a>
@@ -71,6 +90,7 @@ export default function RootLayout({
               case-study bodies. */}
           <CommandPalette
             caseStudies={caseStudies.map(({ slug, title }) => ({ slug, title }))}
+            projects={projects.map(({ slug, title }) => ({ slug, title }))}
             notes={getNotes().map(({ slug, title }) => ({ slug, title }))}
           />
         </body>

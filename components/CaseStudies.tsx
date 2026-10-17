@@ -1,4 +1,4 @@
-import { Link } from "next-view-transitions";
+import { Link } from "@/components/ViewTransitions";
 import { caseTitleTransition } from "@/lib/view-transitions";
 import { caseStudies } from "@/lib/case-studies";
 import { SectionSplit } from "@/components/motion/SectionSplit";
@@ -12,7 +12,7 @@ import { sectionShapes } from "@/lib/particle-shapes";
 export function CaseStudies() {
   return (
     <SectionSplit id="work" theme="light" shapePoints={sectionShapes.work}>
-      <SectionHeading index="03" label="Case studies" headline="Bugs worth writing about." />
+      <SectionHeading index="04" label="Case studies" headline="Bugs worth writing about." />
       <ol className="border-t border-border">
         {caseStudies.map((study, i) => (
           <li key={study.slug} className="border-b border-border">

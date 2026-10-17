@@ -7,7 +7,7 @@ import { SectionHeading } from "@/components/SectionHeading";
 export function Contact() {
   return (
     <SectionSplit id="contact" theme="light" shapePoints={sectionShapes.contact}>
-      <SectionHeading index="07" label="Contact" headline="Let's build something durable." />
+      <SectionHeading index="08" label="Contact" headline="Let's build something durable." />
       <div className="grid gap-12 md:grid-cols-2">
         <div>
           <p className="max-w-md text-lg text-text-secondary">

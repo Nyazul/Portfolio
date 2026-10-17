@@ -17,14 +17,21 @@ type SectionSplitProps = {
 // particle scatter -> converge -> scatter cycle to actually read as a
 // cycle, rather than the shape flashing past in a cramped viewport. Only on
 // md+, though: on mobile the particle column stacks under the content, so a
-// forced 140vh just left a screen of empty scroll after every section.
+// forced 160vh just left a screen of empty scroll after every section.
 //
-// The particle-space column no longer draws anything itself - it's a pure
-// screen-space marker. The single global <ParticleSystem/> (mounted once in
-// the root layout) reads this element's rect every frame and converges its
-// shared swarm into it when this section is dominant. That's what lets the
-// same particles travel freely between sections instead of each section
-// owning an isolated cloud.
+// The particle-space column draws nothing itself - it's a pure screen-space
+// marker. The single global <ParticleSystem/> converges its shared swarm
+// into this element's rect when this section is dominant, which is what
+// lets the same particles travel freely between sections.
+//
+// On md+ the marker is a half-viewport box pinned (sticky) to the middle of
+// the screen for as long as its section is on screen. Before, it stretched
+// to the content's full height, so in a long section the shape formed
+// around the section's midpoint - often off-screen while you read the top -
+// and its size depended on how much content the section had. Now every
+// shape forms in view, at the same size, and holds for the whole section.
+// (particle-engine.ts computes sticky positions itself, since it caches
+// rects relative to the document.)
 export function SectionSplit({
   id,
   theme,
@@ -36,19 +43,17 @@ export function SectionSplit({
 
   return (
     <section id={id} className="section-pad px-6">
-      <div className="mx-auto flex max-w-6xl items-center md:min-h-[160vh]">
-        <div className="grid w-full gap-12 md:grid-cols-3">
-          <div
-            className={`relative z-[6] ${reverse ? "md:order-2 md:col-span-2" : "md:col-span-2"}`}
-          >
-            {children}
-          </div>
-          <div
-            ref={targetRef}
-            className={`relative min-h-[200px] md:min-h-[280px] ${reverse ? "md:order-1" : ""}`}
-            aria-hidden="true"
-          />
+      <div className="mx-auto grid max-w-6xl gap-12 md:min-h-[160vh] md:grid-cols-3">
+        <div
+          className={`relative z-[6] md:self-center ${reverse ? "md:order-2 md:col-span-2" : "md:col-span-2"}`}
+        >
+          {children}
         </div>
+        <div
+          ref={targetRef}
+          className={`relative min-h-[200px] md:sticky md:top-[25svh] md:h-[50svh] md:min-h-0 md:self-start ${reverse ? "md:order-1" : ""}`}
+          aria-hidden="true"
+        />
       </div>
     </section>
   );

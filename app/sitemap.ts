@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { caseStudies } from "@/lib/case-studies";
 import { getNotes } from "@/lib/notes";
+import { projects } from "@/lib/projects";
 import { siteUrl } from "@/lib/site-config";
 
 export default function sitemap(): MetadataRoute.Sitemap {
@@ -12,6 +13,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
     url: `${siteUrl}/work/${study.slug}`,
     changeFrequency: "yearly",
     priority: 0.8,
+  }));
+
+  const projectRoutes: MetadataRoute.Sitemap = projects.map((p) => ({
+    url: `${siteUrl}/projects/${p.slug}`,
+    changeFrequency: "monthly",
+    priority: 0.9,
   }));
 
   const notes = getNotes();
@@ -27,5 +34,5 @@ export default function sitemap(): MetadataRoute.Sitemap {
       ]
     : [];
 
-  return [...staticRoutes, ...caseStudyRoutes, ...noteRoutes];
+  return [...staticRoutes, ...projectRoutes, ...caseStudyRoutes, ...noteRoutes];
 }

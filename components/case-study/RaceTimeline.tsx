@@ -1,14 +1,15 @@
-// Two-lane timeline of the billing race, before and after. Static inline SVG
+// Two-lane timeline of the billing race: the original prototype, and the
+// guarded UPDATE proposed as the next fix. Static inline SVG
 // (no JS) so it renders identically everywhere and inherits the page palette
 // through currentColor / CSS vars.
 
 type Step = { lane: 0 | 1; t: number; label: string; tone?: "bad" | "ok" | "muted" };
 
 const before: Step[] = [
-  { lane: 0, t: 0, label: "read used=99" },
-  { lane: 1, t: 1, label: "read used=99" },
-  { lane: 0, t: 2, label: "99<100 ✓ write 100", tone: "muted" },
-  { lane: 1, t: 3, label: "99<100 ✓ write 100", tone: "bad" },
+  { lane: 0, t: 0, label: "read count=99" },
+  { lane: 1, t: 1, label: "read count=99" },
+  { lane: 0, t: 2, label: "99<100 ✓ save 100", tone: "muted" },
+  { lane: 1, t: 3, label: "99<100 ✓ save 100", tone: "bad" },
 ];
 
 const after: Step[] = [
@@ -71,14 +72,14 @@ export function RaceTimeline() {
   return (
     <div className="my-8 grid gap-4 md:grid-cols-2">
       <Lane
-        title="Before: check-then-act"
+        title="Prototype: read, compare, save"
         steps={before}
-        verdict="Both pass the check and both write 100: 101 units used, 100 recorded, no error anywhere."
+        verdict="Both pass the check and both save 100: two allowed with one unit left, one increment lost, no error anywhere."
       />
       <Lane
-        title="After: guarded UPDATE"
+        title="Proposed: guarded UPDATE"
         steps={after}
-        verdict="The database serializes the writes. B's condition fails, so it gets a typed quota error."
+        verdict="The database serializes the writes. B's condition fails against A's committed value, so it gets a typed quota error."
       />
     </div>
   );

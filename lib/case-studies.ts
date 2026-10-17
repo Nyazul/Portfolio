@@ -138,92 +138,121 @@ fi`,
   },
   {
     slug: "billing-concurrency",
-    title: "Concurrency-safe subscription billing",
+    title: "Counting usage under concurrent requests",
     excerpt:
-      "Two concurrent requests could both read the same usage quota before either wrote back, letting both through when only one should have been allowed. The fix: make the database enforce the invariant.",
+      "The first version counted usage by reading a counter, adding one and saving it, so concurrent requests lost updates. Moving the increment into SQL fixed the counting. The quota check still runs in Java first, so requests that arrive at the limit together can still both get in. The next fix puts the limit inside the UPDATE itself.",
     role: "Backend engineer",
     timeframe: "2026",
     stack: ["Spring Boot", "PostgreSQL", "JPA"],
     keyFacts: [
-      { label: "Statements to enforce quota", value: "1" },
-      { label: "Typed violation responses", value: "3" },
-      { label: "Metered limits across 3 plans", value: "4" },
+      { label: "Lost updates after moving the increment into SQL", value: "0" },
+      { label: "Typed violation responses (422 · 423 · 429)", value: "3" },
+      { label: "Metered count limits per plan", value: "4" },
     ],
     problem: [
-      "The multi-tenant workspace platform bills on usage. Each plan (Basic, Pro or Enterprise) grants a quota per metric: record groups, records per group, automations and active users. Every metered action has to check that quota before it's allowed through.",
-      "The first implementation did the obvious thing: read the usage row, compare it against the quota in Java, then write the incremented value back. That's correct when requests arrive one at a time, which is exactly how they arrive in a demo.",
-      "Under concurrency it isn't. Two requests can both read the same 'one unit left' state before either writes, both pass the check, and both increment. The workspace ends up over quota with no error anywhere, and nothing in the logs says anything went wrong.",
+      "The multi-tenant workspace platform bills on usage. Each plan grants a limit per feature: record groups, records per group, automations and active users. Every metered action checks the workspace's counter for the current period against that limit before it's allowed through.",
+      "The first prototype did the obvious thing: load the counter row, compare it with the limit in Java, add one and save the row back. That's correct when requests arrive one at a time, which is exactly how they arrive in a demo.",
+      "Under concurrency it breaks twice over. Two requests can both read the same count and both save count + 1, so one increment silently disappears and the counter undercounts. And both can pass the limit check on that same stale count, so a workspace with one unit left gets two.",
     ],
     approach: [
       {
-        heading: "See the race clearly",
+        heading: "Two bugs in one read-modify-write",
         body: [
-          "Check-then-act across two statements leaves a window between the read and the write. Any request that lands inside that window sees stale state. Adding locks in application code would only move the window around. The real fix is to remove it.",
+          "Check-then-act across separate statements leaves a window between the read and the write. Any request that lands inside it works from stale state. Here that stale state causes two different failures: a lost update (the counter is wrong) and a broken invariant (the limit is exceeded).",
         ],
         diagram: "race-timeline",
         code: {
           lang: "java",
-          caption: "Before (simplified): the check and the write are separate steps",
-          snippet: `WorkspaceUsage usage = usageRepository.find(workspaceId, metric);
+          caption: "The prototype (simplified): read, compare, write back",
+          snippet: `WorkspaceUsageCounter counter = repository.find(workspaceId, feature, periodStart);
 
-if (usage.getUsed() + amount > usage.getQuota()) {
-    throw new QuotaExceededException(workspaceId, metric);
+if (counter.getCount() + 1 > limit) {
+    throw new QuotaExceededException(...);
 }
 
-// Two requests can both reach this line with the same 'used' value.
-usage.setUsed(usage.getUsed() + amount);`,
+// Two requests can both reach this line with the same count:
+// one increment is lost, and both were allowed.
+counter.setCount(counter.getCount() + 1);
+repository.save(counter);`,
         },
       },
       {
-        heading: "Let the database enforce the invariant",
+        heading: "Shipped: let SQL do the increment",
         body: [
-          "Usage tracking became a single conditional UPDATE. The quota check moved into the WHERE clause, so the row changes only if there is room for the increment. Row-level locking inside PostgreSQL serializes the competing writes, and the loser's condition is re-evaluated against the committed value.",
-          "The application no longer decides whether the quota allows the action. It asks the database to do the increment and reads the affected-row count: 1 means allowed, 0 means rejected.",
+          "The increment moved into a single UPDATE that adds to whatever value is committed when it runs. PostgreSQL's row lock serializes concurrent increments, so every allowed request is now counted. The counter can no longer drift.",
+          "What this didn't change is where the limit is checked. PolicyService still reads the count and compares it with the limit in Java before the record is saved, then the increment happens later in the same transaction. Two requests at the boundary can both pass that check before either increments. The counter will correctly show the workspace is over its limit, but it's over.",
         ],
         code: {
           lang: "java",
-          caption: "After (simplified): one atomic, guarded statement",
-          snippet: `@Modifying
-@Query("""
-    UPDATE WorkspaceUsage u
-       SET u.used = u.used + :amount
-     WHERE u.workspaceId = :workspaceId
-       AND u.metric      = :metric
-       AND u.used + :amount <= u.quota
-    """)
-int tryConsume(UUID workspaceId, Metric metric, long amount);
+          caption: "Today (simplified): the increment is atomic, the check is not",
+          snippet: `// 1. Check, in Java, against a plain read of the counter
+policy.assertUnderQuota(workspaceId, MAX_RECORDS_PER_RECORD_GROUP, 1);
 
-// Caller: zero rows updated means the quota said no.
-if (usageRepository.tryConsume(workspaceId, metric, amount) == 0) {
-    throw new QuotaExceededException(workspaceId, metric);
-}`,
+// ... validate and save the record ...
+
+// 2. Increment, atomically, with no condition
+@Modifying
+@Query("""
+    UPDATE WorkspaceUsageCounter w
+       SET w.count = w.count + :delta
+     WHERE w.workspaceId = :workspaceId
+       AND w.featureKey  = :featureKey
+       AND w.periodStart = :periodStart
+    """)
+int incrementCountByDelta(...);`,
         },
         playground: "quota-race",
       },
       {
+        heading: "Next: put the limit in the UPDATE",
+        body: [
+          "The fix I'd make next removes the window instead of narrowing it: pass the period's limit into the UPDATE and only increment when there's room. The row lock still serializes the competing writes, and the second one re-evaluates its WHERE clause against the first one's committed value, so it updates zero rows.",
+          "The service then stops deciding whether the quota allows the action. It asks the database to consume a unit and reads the affected-row count: 1 means allowed, 0 means throw QuotaExceededException, which rolls back the record saved in the same transaction. Unlimited plans (a limit of -1) skip the guard.",
+        ],
+        code: {
+          lang: "java",
+          caption: "Proposed: one guarded statement, check and write together",
+          snippet: `@Modifying
+@Query("""
+    UPDATE WorkspaceUsageCounter w
+       SET w.count = w.count + :delta
+     WHERE w.workspaceId = :workspaceId
+       AND w.featureKey  = :featureKey
+       AND w.periodStart = :periodStart
+       AND w.count + :delta <= :limit
+    """)
+int tryConsume(UUID workspaceId, FeatureKey featureKey,
+               LocalDate periodStart, long delta, long limit);
+
+if (counters.tryConsume(workspaceId, feature, periodStart, 1, limit) == 0) {
+    throw new QuotaExceededException(...);
+}`,
+        },
+      },
+      {
         heading: "Version plans as snapshots",
         body: [
-          "Plan changes are versioned. At each renewal the workspace takes a snapshot of its plan template, and usage for that period is measured against the snapshot. Switching plans mid-period can't rewrite what the workspace already consumed under the old terms.",
+          "Plan changes are versioned. Each subscription period carries its own snapshot of the plan's entitlements, and usage for that period is measured against the snapshot. Switching plans mid-period can't rewrite what the workspace already consumed under the old terms.",
         ],
       },
       {
         heading: "Make failures specific",
         body: [
-          "A generic 'request failed' gives a client nothing to branch on. Quota, policy and resource-lock violations each return their own typed error response, so the frontend can show an upgrade prompt, a permissions message or a retry hint as appropriate.",
+          "A generic 'request failed' gives a client nothing to branch on. Quota, policy and resource-lock violations each return their own RFC 9457 ProblemDetail with its own status, so the frontend can show an upgrade prompt, a plan message or an unlock hint as appropriate.",
         ],
         callouts: [
-          { label: "Quota exceeded", body: "The plan's limit for this metric is used up this period." },
-          { label: "Policy violation", body: "The plan doesn't include this capability at all." },
-          { label: "Resource locked", body: "Another operation holds the resource; safe to retry." },
+          { label: "Quota exceeded · 429", body: "The plan's limit for this feature is used up for the period." },
+          { label: "Policy violation · 422", body: "The plan doesn't include this feature at all." },
+          { label: "Resource locked · 423", body: "Over the limit of a downgraded plan; locked until an upgrade." },
         ],
       },
     ],
     outcome: [
-      "The over-quota race is closed by construction rather than by timing. No interleaving of requests can push usage past the quota, because the only write path re-checks the limit atomically.",
-      "The billing code got smaller too: the read-compare-write dance, and the defensive checks around it, collapsed into one statement and one branch.",
+      "Counting is fixed: moving the increment into SQL means concurrent requests can no longer lose updates, so usage figures are right.",
+      "Enforcement isn't finished. The limit is still checked in Java before the increment, so a burst of requests at the boundary can push a workspace slightly over. The guarded UPDATE above closes that by construction rather than by timing, and it's the change I'd ship next.",
     ],
     lessons: [
-      "If an invariant matters, put it where every write path has to pass through it. Usually that's the database, not a service method.",
+      "An atomic increment fixes lost updates, not invariants. If a limit matters, the check and the write have to be the same statement.",
       "Code that is 'correct' one request at a time is a hypothesis. Concurrency is the test.",
     ],
     nodeId: "database",
@@ -378,66 +407,112 @@ List<Task> findDueWithAssignee(Instant now);`,
     slug: "s3-document-lifecycle",
     title: "Document storage lifecycle for a multi-tenant CRM",
     excerpt:
-      "File upload, download and secure temporary links for a property-management CRM, with storage scoped to each project. Deleting a project actually cleans up its stored files.",
+      "Upload, download and short-lived share links for a property CRM, with every file kept under its project's prefix in a private bucket. When creating a project fails partway, a compensating delete removes the files it already uploaded. That clean-up doesn't cover every failure path yet, and the fix is to tie it to the rollback itself.",
     role: "Software engineering intern",
     timeframe: "2025",
     stack: ["AWS S3", "Spring Boot", "React"],
     keyFacts: [
-      { label: "Entities in the CRM", value: "15" },
-      { label: "Orphaned files after project delete", value: "0" },
-      { label: "Templates per role", value: "1 shared" },
+      { label: "Minutes a download link stays valid", value: "10" },
+      { label: "Public objects in the bucket", value: "0" },
+      { label: "Levels from organization to flat", value: "5" },
     ],
     problem: [
-      "The CRM stores documents for each property project: agreements, IDs, receipts. Users need to upload, download and share them without the bucket ever being public.",
-      "The quiet failure mode in object storage is orphaned data. When a project is deleted, its database rows disappear but its files don't. Nobody notices, because nothing references them anymore, and they keep getting billed indefinitely.",
+      "The CRM stores documents for each property project: letterheads, agreements, IDs, receipts. Users need to upload, download and share them without the bucket ever being public.",
+      "Object storage isn't part of the database transaction. Creating a project uploads its letterhead and documents to S3 partway through one @Transactional method. If a later step fails, PostgreSQL rolls back, but the files are already in the bucket: referenced by nothing, invisible in the app, and billed indefinitely.",
     ],
     approach: [
       {
         heading: "Short-lived links instead of a public bucket",
         body: [
-          "Downloads and shares go through presigned URLs scoped to a single object and valid only briefly. The bucket stays private, and access control stays in the application, where the permission model lives.",
+          "Downloads and shares go through presigned URLs scoped to a single object and valid for ten minutes. The bucket stays private, and access control stays in the application, where the permission model lives. Only the object key is stored in the database, never the bytes or a public URL.",
         ],
         code: {
           lang: "java",
           caption: "Simplified: a single-object, time-boxed download link",
-          snippet: `PresignedGetObjectRequest link = presigner.presignGetObject(r -> r
+          snippet: `GetObjectPresignRequest request = GetObjectPresignRequest.builder()
     .signatureDuration(Duration.ofMinutes(10))
-    .getObjectRequest(g -> g
-        .bucket(bucket)
-        .key(keyFor(projectId, fileId))));`,
+    .getObjectRequest(g -> g.bucket(bucket).key(key))
+    .build();
+
+return presigner.presignGetObject(request).url().toString();`,
         },
       },
       {
         heading: "Scope every object to its project",
         body: [
-          "Every object key is prefixed with its project. That one convention makes lifecycle management tractable: deleting a project can remove exactly its files, nothing more and nothing left behind. Cleanup runs after the delete commits, so a rolled-back delete never loses files.",
+          "Every key starts with the organization and the project: {orgId}/{projectName}/LetterHead/… and /Documents/…. That one convention is what makes clean-up tractable: removing a project's files is a single prefix delete, nothing more and nothing left behind.",
         ],
         code: {
           lang: "java",
-          caption: "Simplified: project-scoped keys and after-commit cleanup",
-          snippet: `String keyFor(UUID projectId, UUID fileId) {
-    return "projects/%s/%s".formatted(projectId, fileId);
-}
+          caption: "Simplified: project-scoped keys and a prefix delete",
+          snippet: `String key = orgId + "/" + projectName + "/Documents/" + fileName;
 
-@TransactionalEventListener(phase = AFTER_COMMIT)
-void on(ProjectDeleted event) {
-    storage.deletePrefix("projects/" + event.projectId() + "/");
+void deleteProjectDirectory(UUID orgId, String projectName) {
+    String prefix = orgId + "/" + projectName + "/";
+    List<ObjectIdentifier> keys = s3.listObjectsV2(r -> r.bucket(bucket).prefix(prefix))
+        .contents().stream()
+        .map(o -> ObjectIdentifier.builder().key(o.key()).build())
+        .toList();
+    s3.deleteObjects(r -> r.bucket(bucket).delete(d -> d.objects(keys)));
 }`,
         },
       },
       {
-        heading: "One report template, many roles",
+        heading: "Compensate when creation fails",
         body: [
-          "The feature was paired with a configurable report engine. Different roles see a different set of fields in generated documents, driven by configuration rather than a separate template per role.",
+          "Each step of project creation (wings and flats, bank details, amenities, documents, disbursements) reports whether it succeeded. If one reports failure, the method runs a compensating hard delete: the project's S3 prefix first, then its rows, then it throws so the transaction rolls back. A user-facing delete, by contrast, is a soft delete: the rows stay, so the files they point to stay with them.",
+        ],
+        code: {
+          lang: "java",
+          caption: "Simplified: compensation on a reported failure",
+          snippet: `@Transactional
+public Project createProject(ProjectCreationDTO dto, AppUserDetails user) {
+    Project project = projectRepository.save(newProject(dto, user)); // + letterhead upload
+
+    if (!wingService.createWingsForProject(project, dto.wings())
+            || !documentService.createDocumentsForProject(project, dto.documents(), user)
+            || /* ... banks, amenities, disbursements ... */) {
+        hardDeleteProjectRecursive(project, user);   // S3 prefix, then rows
+        throw new ApiException(INTERNAL_SERVER_ERROR, "Project creation failed");
+    }
+    return project;
+}`,
+        },
+      },
+      {
+        heading: "Next: clean up on every rollback",
+        body: [
+          "The compensation only runs when a step returns false. If a step throws instead (an S3 timeout mid-upload, a constraint violation), the exception skips that branch: the database rolls back and the files uploaded so far stay in the bucket. The RealEstate project page has a playground that shows both paths.",
+          "The fix I'd make next ties the clean-up to the transaction's outcome rather than to one code path: register a synchronization on the first upload, and delete the prefix whenever the transaction completes with a rollback, whatever caused it. Two smaller fixes go with it: page through listObjectsV2 (one call returns at most 1,000 keys), and key objects by project id instead of name, so a rename can't separate a project from its files.",
+        ],
+        code: {
+          lang: "java",
+          caption: "Proposed: undo uploads on any rollback",
+          snippet: `// On the first upload inside a transaction:
+TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+    @Override
+    public void afterCompletion(int status) {
+        if (status == STATUS_ROLLED_BACK) {
+            storage.deletePrefix(prefix);   // pages through every key
+        }
+    }
+});`,
+        },
+      },
+      {
+        heading: "Named report policies",
+        body: [
+          "The feature was paired with a configurable PDF report engine. Each project can have named policies that choose which sections a generated report includes, such as the project overview or the wing breakdown, rendered server-side from HTML instead of maintained as separate templates.",
         ],
       },
     ],
     outcome: [
-      "Documents are private by default and shareable on demand, and deleting a project now cleans up its storage instead of leaving it to accumulate cost.",
+      "Documents are private by default and shareable on demand, and a project whose creation fails with a reported error removes the files it uploaded instead of leaving them to accumulate cost.",
+      "The clean-up isn't complete yet: exceptions, very large projects and renamed projects can still leave files behind. Tying it to the rollback, paginating and keying by id is the change I'd ship next.",
     ],
     lessons: [
       "Anything you create, you're responsible for deleting. Design the cleanup path at the same time as the create path.",
-      "A good key naming convention is a cheap form of data modelling.",
+      "A transaction stops at the database. Anything else it touches needs its own undo, and that undo has to run on every failure path, not just the ones you return from.",
     ],
     nodeId: "storage",
   },

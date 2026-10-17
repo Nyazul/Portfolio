@@ -187,14 +187,58 @@ and the section reports "unavailable".
   mounted in the root layout with only slugs/titles passed in. `help`
   lists commands; a few are unlisted (`sudo hire-me`, `rm -rf /`,
   `coffee`, `vim`).
-- **Shared-element route transitions** via `next-view-transitions`:
+- **Shared-element route transitions** (`components/ViewTransitions.tsx`,
+  a small in-house replacement for the `next-view-transitions` package):
   case-study titles (`lib/view-transitions.ts`) and note titles morph
   between list and page; the nav is pinned with its own transition name.
+  A route that hasn't rendered within 2s skips the animation instead of
+  hitting Chrome's 4s view-transition timeout (which the package surfaced
+  as an uncaught `TimeoutError`). Back/forward navigations don't animate.
 - **Notes** (`lib/notes.ts`, `/notes`, `/notes/[slug]`, `/notes/rss.xml`,
   sitemap). Notes marked `draft: true` exist in dev only. **The two seeded
   notes are drafts written from case-study facts - review/rewrite them in
   your own voice, then set `draft: false` to publish.** The footer link and
   palette entries appear once something is published.
+
+### Phase 7 — projects, loader, edge text, orange cursor
+- **Projects** (`lib/projects.ts`, `/projects/[slug]`, home "Work" section via
+  `components/ProjectsList.tsx`): architecture walkthroughs of Generic
+  WorkFlow and RealEstate CRM, written from the real codebases in
+  `../YSM/` (class names, schedules, Kafka topics, scopes all verified
+  there in Oct 2026), plus an "Also built" list. Each page: challenge,
+  scroll-synced architecture journey (`components/project/ArchitectureJourney.tsx`),
+  components, a playground, and links to related case studies.
+  - `PermissionPlayground` + `lib/permission-model.ts`: a port of Generic
+    WorkFlow's `AuthorizationService`/`GrantEvaluator` rules (owner/admin
+    bypass, allow-only union of role grants + overrides, 5 scopes,
+    traceable groups).
+  - `ProjectCreationPlayground` + `lib/project-creation.ts`: RealEstate's
+    `createProject` transaction with S3 uploads, failure injection
+    (returns false → compensation; throws → orphaned S3 objects).
+- **Boot loader** (`components/BootLoader.tsx`): first visit per session,
+  never under reduced motion; skip decided pre-paint by an inline script in
+  `app/layout.tsx` (`lib/boot.ts` key); CSS failsafe at 5s and a JS timer
+  failsafe that always releases the hero intro (`lib/intro.ts`).
+- **Edge text** (`components/motion/EdgeTextRows.tsx`): replaces the hero
+  marquee (`VelocityMarquee` deleted). Words live in its `ROWS` constant.
+- **Cursor**: solid orange dot/ring, black over orange backgrounds; no
+  more `mix-blend-difference`.
+- **Sections now**: 01 About · 02 Architecture · 03 Projects
+  (`ProjectsSection`, dark, a plain themed wrapper rather than a
+  `SectionReveal` since it follows the dark Architecture section) · 04 Case
+  studies (`id="work"`) · 05 Stack · 06 Principles · 07 Experience ·
+  08 Contact. Stack and Principles drop out of the desktop nav pill between
+  md and lg (`wide: true` in `Nav.tsx`) so eight links fit.
+- **Particle shapes**: every shape is normalised in `lib/particle-shapes.ts`
+  (centred, larger extent = `SHAPE_SPAN`), and on md+ each section's shape
+  anchor is a sticky half-viewport box (`SectionSplit`), so shapes form in
+  view, at the same size, for the whole section. `particle-engine.ts`
+  computes sticky positions itself because its rect cache is
+  document-relative.
+- **Case studies match the code**: billing now tells the real three-stage
+  story (prototype read-modify-write → today's atomic increment with a Java
+  check → proposed guarded UPDATE), and S3 describes the real compensation
+  path with "clean up on every rollback" as the next fix.
 
 ## Worth checking yourself (nobody has verified these on real devices)
 

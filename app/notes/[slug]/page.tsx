@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { Link } from "next-view-transitions";
+import { Link } from "@/components/ViewTransitions";
 import { formatNoteDate, getNote, getNotes, type NoteBlock } from "@/lib/notes";
 import { getCaseStudy } from "@/lib/case-studies";
 import { siteConfig, siteUrl } from "@/lib/site-config";

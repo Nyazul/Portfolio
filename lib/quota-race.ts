@@ -1,7 +1,7 @@
 // Deterministic model of the billing quota race from the
 // billing-concurrency case study, driving <QuotaRacePlayground/>.
 //
-// One workspace_usage row (used=99, quota=100: one unit left) and two
+// One usage counter (count=99, limit=100: one unit left) and two
 // requests, A at t=0 and B `gap` ms later, each trying to consume one unit.
 // The timeline is computed up front from (mode, gap); the playground only
 // moves a playhead across it. Durations are illustrative, not measured -
@@ -54,17 +54,17 @@ export const MODES: { id: RaceMode; label: string; caption: string }[] = [
   {
     id: "read-check-write",
     label: "Read → check → write",
-    caption: "The original code: SELECT, compare in Java, write the new value back.",
+    caption: "The first prototype: load the counter, compare in Java, save count + 1.",
   },
   {
     id: "check-then-increment",
     label: "Check, then atomic +1",
-    caption: "A tempting half-fix: keep the Java check, but increment in SQL.",
+    caption: "Today's code: the increment is one SQL UPDATE, but the limit is still checked in Java first.",
   },
   {
     id: "guarded-update",
     label: "Guarded UPDATE",
-    caption: "The fix: the check lives in the UPDATE's WHERE clause.",
+    caption: "The fix I'd make next: the limit moves into the UPDATE's WHERE clause.",
   },
 ];
 
@@ -76,7 +76,7 @@ export function raceWindow(mode: RaceMode): number {
   return CHECK_MS + WRITE_MS;
 }
 
-const SELECT = "SELECT used FROM workspace_usage";
+const SELECT = "SELECT count FROM workspace_usage_counters";
 
 export function simulateRace(mode: RaceMode, gap: number): RaceResult {
   return mode === "guarded-update" ? guarded(gap) : checkThenAct(mode, gap);
@@ -105,8 +105,8 @@ function checkThenAct(mode: RaceMode, gap: number): RaceResult {
       t: aCommit,
       lane: "A",
       text: increment
-        ? `UPDATE … SET used = used + 1 → used = ${aUsed}`
-        : `UPDATE … SET used = ${aUsed}`,
+        ? `UPDATE … SET count = count + 1 → count = ${aUsed}`
+        : `save(count = ${aUsed})`,
       tone: "neutral",
     },
   );
@@ -166,8 +166,8 @@ function checkThenAct(mode: RaceMode, gap: number): RaceResult {
     t: bCommit,
     lane: "B",
     text: increment
-      ? `UPDATE … SET used = used + 1 → used = ${bUsed}`
-      : `UPDATE … SET used = ${bUsed}   (overwrites A)`,
+      ? `UPDATE … SET count = count + 1 → count = ${bUsed}`
+      : `save(count = ${bUsed})   (overwrites A)`,
     tone: "bad",
   });
   commits.push([bCommit, bUsed]);
@@ -182,12 +182,12 @@ function checkThenAct(mode: RaceMode, gap: number): RaceResult {
       ? {
           tone: "bad",
           title: `Over quota: ${bUsed} / ${QUOTA}`,
-          body: "Both passed the check before either wrote, then both incremented. The increment was atomic; the check wasn't. No error, no log line.",
+          body: "Both passed the Java check before either incremented, then both incremented. Nothing was lost this time, so the counter honestly reads 101, but the workspace is over its limit. The increment is atomic; the check isn't.",
         }
       : {
           tone: "bad",
           title: `Two allowed, counter says ${bUsed}`,
-          body: `With one unit left, both requests got through. B wrote the ${bUsed} it computed from a stale read, erasing A's increment: ${QUOTA + 1} units used, ${bUsed} recorded, and nothing anywhere says so.`,
+          body: `With one unit left, both requests got through. B saved the ${bUsed} it computed from a stale read, erasing A's increment: ${QUOTA + 1} units used, ${bUsed} recorded, and nothing anywhere says so.`,
         },
   };
 }
@@ -196,7 +196,7 @@ function guarded(gap: number): RaceResult {
   const segments: Segment[] = [];
   const log: LogLine[] = [];
   const commits: [number, number][] = [[0, START_USED]];
-  const stmt = `UPDATE … SET used = used + 1 WHERE used + 1 ≤ ${QUOTA}`;
+  const stmt = `UPDATE … SET count = count + 1 WHERE count + 1 ≤ ${QUOTA}`;
 
   const aCommit = WRITE_MS;
   segments.push({ lane: "A", kind: "update", start: 0, end: aCommit, label: "UPDATE" });

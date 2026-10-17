@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { Link } from "next-view-transitions";
+import { Link } from "@/components/ViewTransitions";
 import { caseTitleTransition } from "@/lib/view-transitions";
 import type { Metadata } from "next";
 import {
@@ -160,7 +160,7 @@ export default async function CaseStudyPage({
           href="/#work"
           className="inline-block font-mono text-sm text-text-tertiary transition-colors hover:text-accent"
         >
-          ← All work
+          ← All case studies
         </Link>
         <p className="mt-12 font-mono text-sm text-text-tertiary">
           Case study {String(index + 1).padStart(2, "0")} /{" "}

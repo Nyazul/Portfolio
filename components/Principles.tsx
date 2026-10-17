@@ -32,7 +32,7 @@ const principles = [
 export function Principles() {
   return (
     <SectionSplit id="principles" theme="light" shapePoints={sectionShapes.principles}>
-      <SectionHeading index="05" label="Principles" headline="How I make decisions." />
+      <SectionHeading index="06" label="Principles" headline="How I make decisions." />
       <ol className="grid gap-px overflow-hidden border border-border bg-border md:grid-cols-2">
         {principles.map((p, i) => {
           const study = getCaseStudy(p.proof);

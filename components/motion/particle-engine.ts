@@ -254,21 +254,57 @@ export function startParticles(
   // styles earlier in the same frame; instead each element is measured
   // once, stored relative to the document, and shifted by scrollY per
   // frame. Invalidated on resize/body size change and every RECT_REFRESH_MS.
-  const rectCache = new Map<HTMLElement, ScreenRect>();
+  //
+  // Sticky elements (the section shape markers on md+) move relative to the
+  // document as you scroll, so for those the cache keeps their containing
+  // block's document rect and their sticky offset instead, and the per-frame
+  // position is computed the way the browser does it: pinned at `top`, but
+  // never above its natural spot or past its container's bottom.
+  type CachedRect = ScreenRect & {
+    sticky?: { offset: number; parentTop: number; parentHeight: number };
+  };
+  const rectCache = new Map<HTMLElement, CachedRect>();
   let rectsMeasuredAt = 0;
 
   function invalidateRects() {
     rectCache.clear();
   }
 
+  function measure(el: HTMLElement, scrollY: number): CachedRect {
+    const r = el.getBoundingClientRect();
+    const style = getComputedStyle(el);
+    const parent = el.parentElement;
+    if (style.position === "sticky" && parent) {
+      const pr = parent.getBoundingClientRect();
+      return {
+        top: 0,
+        left: r.left,
+        width: r.width,
+        height: r.height,
+        sticky: {
+          offset: parseFloat(style.top) || 0,
+          parentTop: pr.top + scrollY,
+          parentHeight: pr.height,
+        },
+      };
+    }
+    return { top: r.top + scrollY, left: r.left, width: r.width, height: r.height };
+  }
+
   function rectOf(el: HTMLElement, scrollY: number): ScreenRect {
     let doc = rectCache.get(el);
     if (!doc) {
-      const r = el.getBoundingClientRect();
-      doc = { top: r.top + scrollY, left: r.left, width: r.width, height: r.height };
+      doc = measure(el, scrollY);
       rectCache.set(el, doc);
     }
-    return { top: doc.top - scrollY, left: doc.left, width: doc.width, height: doc.height };
+    let top = doc.top - scrollY;
+    if (doc.sticky) {
+      // Natural position: top of its container (the markers are self-start).
+      const natural = doc.sticky.parentTop - scrollY;
+      const maxTop = natural + doc.sticky.parentHeight - doc.height;
+      top = Math.min(Math.max(natural, doc.sticky.offset), maxTop);
+    }
+    return { top, left: doc.left, width: doc.width, height: doc.height };
   }
 
   const bodyObserver = new ResizeObserver(invalidateRects);
