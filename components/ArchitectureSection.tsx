@@ -31,16 +31,28 @@ export function ArchitectureSection() {
         label="Architecture"
         headline="Where the work lives."
         aside={
-          show3D
-            ? "Drag to rotate · click a node"
-            : "Static view — 3D loads on desktop"
+          show3D ? (
+            <>
+              <span className="md:hidden">Swipe to spin · tap a node</span>
+              <span className="max-md:hidden">Drag to rotate · click a node</span>
+            </>
+          ) : (
+            "Static view"
+          )
         }
       />
-      <div className="relative">
+      <div
+        className={
+          // Phones: once the 3D view is up, the 2-column grid (which is
+          // much taller than it is wide) stops setting the height - the
+          // canvas gets a fixed, scene-shaped box instead.
+          show3D ? "relative max-md:h-[460px]" : "relative"
+        }
+      >
         <div
           className={
             show3D
-              ? "invisible grid grid-cols-2 gap-px bg-border"
+              ? "invisible grid grid-cols-2 gap-px bg-border max-md:hidden"
               : "grid grid-cols-2 gap-px bg-border"
           }
         >

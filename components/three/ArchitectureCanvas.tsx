@@ -34,12 +34,36 @@ import { NodeVisualDispatcher } from "@/components/three/nodes/NodeVisualDispatc
 // swings round so the node faces it and eases in only modestly.
 const FOCUS_MS = 900;
 const DEFAULT_CAMERA_POS: [number, number, number] = [5.8, 3.7, 7.9];
-const DEFAULT_DISTANCE = Math.hypot(...DEFAULT_CAMERA_POS);
-const FOCUS_DISTANCE = 7.4;
+// Rest distance is fitted to the canvas aspect at runtime (fitDistance), so
+// the whole ring stays in frame from a wide desktop column down to a
+// portrait phone; focus distance is a fraction of it.
+const FOCUS_DISTANCE_RATIO = 0.74;
+// Furthest any node sits from the hub on the xz-plane, plus room for the
+// node's own size and its label.
+const SCENE_EXTENT =
+  Math.max(...sceneNodes.map((n) => Math.hypot(n.position[0], n.position[2]))) + 1.0;
+const FOV_DESKTOP = 42;
+const FOV_COMPACT = 50;
+// Compact (phone) view: polar angle locked so a horizontal swipe only spins
+// the ring, and high enough that the ring opens up into the portrait frame
+// instead of reading as a thin edge-on ellipse.
+const COMPACT_POLAR = 0.95;
+
+// `pad` adds depth headroom for the near side of the ring, which perspective
+// draws larger; the phone view runs it tight because width is the binding
+// constraint there and every pixel of scene size counts.
+function fitDistance(aspect: number, fovDeg: number, pad: number) {
+  const v = THREE.MathUtils.degToRad(fovDeg) / 2;
+  const h = Math.atan(Math.tan(v) * aspect);
+  return (
+    Math.max(SCENE_EXTENT / Math.tan(h), (SCENE_EXTENT * 0.75) / Math.tan(v)) +
+    SCENE_EXTENT * pad
+  );
+}
 // How far the orbit target moves toward the focused node (0 = stay on the
 // hub, 1 = center on the node) - partial keeps the system in frame.
 const FOCUS_TARGET_PULL = 0.45;
-const FOCUS_ELEVATION = 0.42; // rad above the horizon when focused
+const FOCUS_ELEVATION = 0.42; // rad above the horizon when focused (desktop)
 const EXPANDED_NODE_SCALE = 1.08;
 const FLASH_MS = 400;
 // Rest-state size bump for legibility - satellites get a bigger boost since
@@ -98,6 +122,9 @@ function useFlowRuntime(playback: PlaybackState): FlowRuntime {
 }
 
 type SharedProps = {
+  // Phone layout: fixed-size labels, detail card rendered by the DOM wrapper
+  // instead of in-scene, swipe-to-spin only.
+  compact?: boolean;
   hoveredId: string | null;
   selectedId: string | null;
   expandedId: string | null;
@@ -193,6 +220,7 @@ function Node({
   onSelect,
   onNavigate,
   flow,
+  compact,
 }: SharedProps & { node: SceneNode; flow: FlowRuntime }) {
   const active = hoveredId ?? selectedId;
   const highlighted = connectedIds(active);
@@ -286,7 +314,7 @@ function Node({
       <Html
         center
         position={[0, node.isHub ? -1.05 : -0.72, 0]}
-        distanceFactor={8}
+        distanceFactor={compact ? undefined : 8}
         zIndexRange={[30, 0]}
         style={{
           pointerEvents: "none",
@@ -295,7 +323,9 @@ function Node({
         }}
       >
         <div
-          className="whitespace-nowrap rounded-full border px-2 py-0.5 font-mono text-[10px] tracking-wide backdrop-blur-sm"
+          className={`whitespace-nowrap rounded-full border px-2 py-0.5 font-mono tracking-wide backdrop-blur-sm ${
+            compact ? "text-[9px]" : "text-[10px]"
+          }`}
           style={{
             color: isEmphasized ? COLOR.accent : COLOR.signalDim,
             borderColor: isEmphasized ? COLOR.accent : "rgba(255,255,255,0.08)",
@@ -308,7 +338,7 @@ function Node({
       {captionVisible && (
         <Html
           center
-          distanceFactor={8}
+          distanceFactor={compact ? undefined : 8}
           zIndexRange={[30, 0]}
           position={[0, 0.75, 0]}
           style={{
@@ -325,7 +355,9 @@ function Node({
           </div>
         </Html>
       )}
-      <ExpandPanel node={node} expanded={expanded} onNavigate={onNavigate} />
+      {!compact && (
+        <ExpandPanel node={node} expanded={expanded} onNavigate={onNavigate} />
+      )}
     </group>
   );
 }
@@ -460,11 +492,23 @@ function OrbitGroup(props: SharedProps & { flow: FlowRuntime }) {
 function CameraRig({
   selectedId,
   onDollyComplete,
+  compact,
 }: {
   selectedId: string | null;
   onDollyComplete: (node: SceneNode) => void;
+  compact: boolean;
 }) {
   const controls = useThree((state) => state.controls) as OrbitControlsImpl | null;
+  const camera = useThree((state) => state.camera);
+  const aspect = useThree((state) => state.size.width / Math.max(state.size.height, 1));
+  const restDistance = useMemo(
+    () =>
+      compact
+        ? fitDistance(aspect, FOV_COMPACT, 0.05)
+        : fitDistance(aspect, FOV_DESKTOP, 0.35),
+    [aspect, compact],
+  );
+  const focusElevation = compact ? Math.PI / 2 - COMPACT_POLAR : FOCUS_ELEVATION;
   const prevSelected = useRef<string | null>(null);
   const anim = useRef<{
     t: number;
@@ -477,6 +521,17 @@ function CameraRig({
     node: SceneNode | null;
   } | null>(null);
   const tmpDir = useMemo(() => new THREE.Vector3(), []);
+
+  // Re-fit on mount and whenever the canvas aspect changes, unless the
+  // visitor is focused on a node (the focus animation owns distance then).
+  useEffect(() => {
+    if (!controls || selectedId || anim.current) return;
+    const dir = camera.position.clone().sub(controls.target).normalize();
+    camera.position.copy(controls.target).addScaledVector(dir, restDistance);
+    controls.update();
+    // selectedId deliberately omitted: deselecting animates back on its own.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [controls, camera, restDistance]);
 
   useFrame(({ camera }, delta) => {
     if (!controls) return;
@@ -494,8 +549,8 @@ function CameraRig({
         // Swing round to the node's side so it faces the camera.
         const flat = new THREE.Vector3(p.x, 0, p.z).normalize();
         toDir = flat
-          .multiplyScalar(Math.cos(FOCUS_ELEVATION))
-          .add(new THREE.Vector3(0, Math.sin(FOCUS_ELEVATION), 0))
+          .multiplyScalar(Math.cos(focusElevation))
+          .add(new THREE.Vector3(0, Math.sin(focusElevation), 0))
           .normalize();
         toTarget = p.multiplyScalar(FOCUS_TARGET_PULL);
       }
@@ -506,7 +561,7 @@ function CameraRig({
         fromDir,
         toDir,
         fromDist: camera.position.distanceTo(controls.target),
-        toDist: node ? FOCUS_DISTANCE : DEFAULT_DISTANCE,
+        toDist: node ? restDistance * FOCUS_DISTANCE_RATIO : restDistance,
         node,
       };
     }
@@ -528,6 +583,19 @@ function CameraRig({
     }
   });
 
+  return null;
+}
+
+// OrbitControls sets touch-action: none on the canvas, which on a phone would
+// trap the page scroll inside the diagram. pan-y hands vertical swipes back
+// to the browser (page scroll) while horizontal swipes still reach the
+// controls and spin the ring.
+function TouchPolicy({ compact }: { compact: boolean }) {
+  const gl = useThree((state) => state.gl);
+  const controls = useThree((state) => state.controls);
+  useEffect(() => {
+    if (controls) gl.domElement.style.touchAction = compact ? "pan-y" : "none";
+  }, [gl, controls, compact]);
   return null;
 }
 
@@ -569,6 +637,7 @@ export default function ArchitectureCanvas({
   playback,
   ...props
 }: ArchitectureCanvasProps) {
+  const compact = !!props.compact;
   // Fires once, after this (heavy, dynamically-imported) component has
   // actually mounted - the gating wrapper uses this to know it's safe to
   // hide the static-grid fallback without a gap where neither is visible.
@@ -582,8 +651,11 @@ export default function ArchitectureCanvas({
 
   return (
     <Canvas
-      camera={{ position: DEFAULT_CAMERA_POS, fov: 42 }}
-      dpr={[1, 2]}
+      camera={{
+        position: DEFAULT_CAMERA_POS,
+        fov: compact ? FOV_COMPACT : FOV_DESKTOP,
+      }}
+      dpr={compact ? [1, 1.5] : [1, 2]}
       gl={{ antialias: true, alpha: true }}
       onPointerMissed={props.onBackgroundClick}
     >
@@ -598,12 +670,13 @@ export default function ArchitectureCanvas({
         enablePan={false}
         enableDamping
         dampingFactor={0.08}
-        rotateSpeed={0.6}
+        rotateSpeed={compact ? 0.9 : 0.6}
         autoRotate={!paused}
         autoRotateSpeed={0.5}
-        minPolarAngle={0.35}
-        maxPolarAngle={1.45}
+        minPolarAngle={compact ? COMPACT_POLAR : 0.35}
+        maxPolarAngle={compact ? COMPACT_POLAR : 1.45}
       />
+      <TouchPolicy compact={compact} />
       <Grid
         position={[0, -1.7, 0]}
         args={[30, 30]}
@@ -617,18 +690,21 @@ export default function ArchitectureCanvas({
         fadeStrength={1.5}
         infiniteGrid
       />
-      <Sparkles
-        count={70}
-        scale={[10, 4, 10]}
-        size={1.6}
-        speed={0.25}
-        opacity={0.5}
-        color={COLOR.accent}
-      />
+      {!compact && (
+        <Sparkles
+          count={70}
+          scale={[10, 4, 10]}
+          size={1.6}
+          speed={0.25}
+          opacity={0.5}
+          color={COLOR.accent}
+        />
+      )}
       <OrbitGroup {...props} flow={flow} />
       <CameraRig
         selectedId={props.selectedId}
         onDollyComplete={props.onDollyComplete}
+        compact={compact}
       />
       <EffectComposer>
         <Bloom

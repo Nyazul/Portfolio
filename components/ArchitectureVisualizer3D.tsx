@@ -15,15 +15,15 @@ const ArchitectureCanvas = dynamic(
   },
 );
 
-// Same breakpoint/media-query convention as SectionReveal.tsx - desktop +
-// motion allowed only. Checked once on mount, not live-reactive to resize:
-// tearing down a mounted WebGL context mid-session on a rare breakpoint
-// crossing isn't worth the added complexity here.
+// Motion allowed + real WebGL + not an obviously underpowered device. Phones
+// are eligible too - they get the compact variant (see isCompactViewport).
+// Checked once on mount, not live-reactive to resize: tearing down a
+// mounted WebGL context mid-session isn't worth the added complexity here.
 function checkEligible(): boolean {
   if (process.env.NEXT_PUBLIC_ENABLE_3D_VIZ !== "true") return false;
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches)
     return false;
-  if (!window.matchMedia("(min-width: 768px)").matches) return false;
+  if ((navigator.hardwareConcurrency ?? 4) <= 2) return false;
   try {
     const canvas = document.createElement("canvas");
     const gl =
@@ -32,6 +32,12 @@ function checkEligible(): boolean {
   } catch {
     return false;
   }
+}
+
+// Below md the canvas runs its compact variant: fitted portrait camera,
+// swipe-to-spin, DOM detail card, lighter rendering.
+function isCompactViewport(): boolean {
+  return window.matchMedia("(max-width: 767px)").matches;
 }
 
 // Keyboard tab order: orbit nodes in their natural service-flow order, hub
@@ -56,6 +62,7 @@ export function ArchitectureVisualizer3D({ onReady }: { onReady: () => void }) {
   const router = useRouter();
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [eligible, setEligible] = useState(false);
+  const [compact, setCompact] = useState(false);
   const [intersecting, setIntersecting] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
@@ -73,6 +80,7 @@ export function ArchitectureVisualizer3D({ onReady }: { onReady: () => void }) {
 
   useEffect(() => {
     setEligible(checkEligible());
+    setCompact(isCompactViewport());
   }, []);
 
   useEffect(() => {
@@ -185,6 +193,15 @@ export function ArchitectureVisualizer3D({ onReady }: { onReady: () => void }) {
 
   if (!eligible) return null;
 
+  const expandedNode = expandedId
+    ? sceneNodes.find((n) => n.id === expandedId) ?? null
+    : null;
+  // On phones each chip row is a single sideways-scrolling strip instead of
+  // a wrapping block that would bury half the scene.
+  const chipRow = compact
+    ? "pointer-events-auto flex w-full flex-nowrap justify-start gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none]"
+    : "pointer-events-none flex flex-wrap justify-center gap-2";
+
   return (
     <div ref={wrapperRef} className="absolute inset-0">
       {intersecting && (
@@ -199,12 +216,45 @@ export function ArchitectureVisualizer3D({ onReady }: { onReady: () => void }) {
           onDollyComplete={handleDollyComplete}
           playback={playback}
           onMounted={() => setMounted(true)}
+          compact={compact}
         />
       )}
+      {mounted && compact && expandedNode && (
+        <div className="absolute inset-x-2 top-2 z-10 rounded-lg border border-border border-t-2 border-t-accent bg-bg/90 p-4 font-mono text-[11px] shadow-[0_12px_40px_rgba(0,0,0,0.5)] backdrop-blur-md">
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <span className="flex items-center gap-2 text-xs uppercase tracking-wide text-text-primary">
+              <span className="h-1.5 w-1.5 rounded-full bg-accent" aria-hidden="true" />
+              {expandedNode.label}
+            </span>
+            <button
+              type="button"
+              aria-label="Close details"
+              className="px-1 text-text-tertiary hover:text-text-primary"
+              onClick={handleBackgroundClick}
+            >
+              ✕
+            </button>
+          </div>
+          <p className="leading-relaxed text-text-secondary">{expandedNode.description}</p>
+          {expandedNode.caseStudySlug && (
+            <button
+              type="button"
+              className="mt-3 text-accent underline decoration-dotted underline-offset-4"
+              onClick={() => handleNavigate(expandedNode.caseStudySlug!)}
+            >
+              View case study →
+            </button>
+          )}
+        </div>
+      )}
       {mounted && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 flex flex-col items-center gap-2 p-4">
+        <div
+          className={`pointer-events-none absolute inset-x-0 bottom-0 flex flex-col items-center gap-2 ${
+            compact ? "p-2" : "p-4"
+          }`}
+        >
           <div
-            className="pointer-events-none flex flex-wrap justify-center gap-2"
+            className={chipRow}
             role="group"
             aria-label="Architecture nodes"
           >
@@ -214,7 +264,7 @@ export function ArchitectureVisualizer3D({ onReady }: { onReady: () => void }) {
                 <button
                   key={node.id}
                   type="button"
-                  className="pointer-events-auto rounded-full border border-border bg-bg/80 px-3 py-1.5 font-mono text-[11px] tracking-wide text-text-tertiary backdrop-blur transition-colors duration-150 hover:text-text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                  className="pointer-events-auto shrink-0 rounded-full border border-border bg-bg/80 px-3 py-1.5 font-mono text-[11px] tracking-wide text-text-tertiary backdrop-blur transition-colors duration-150 hover:text-text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
                   style={{
                     color: isActive ? "var(--color-accent)" : undefined,
                     borderColor: isActive ? "var(--color-accent)" : undefined,
@@ -255,7 +305,7 @@ export function ArchitectureVisualizer3D({ onReady }: { onReady: () => void }) {
             <div className="h-px flex-1 bg-border" aria-hidden />
           </div>
           <div
-            className="pointer-events-none flex flex-wrap justify-center gap-2"
+            className={chipRow}
             role="group"
             aria-label="Workflow traces"
           >
@@ -265,7 +315,7 @@ export function ArchitectureVisualizer3D({ onReady }: { onReady: () => void }) {
                 <button
                   key={flow.id}
                   type="button"
-                  className="pointer-events-auto rounded-full border border-dashed border-border bg-bg/80 px-3 py-1.5 font-mono text-[11px] tracking-wide text-text-tertiary backdrop-blur transition-colors duration-150 hover:text-text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                  className="pointer-events-auto shrink-0 rounded-full border border-dashed border-border bg-bg/80 px-3 py-1.5 font-mono text-[11px] tracking-wide text-text-tertiary backdrop-blur transition-colors duration-150 hover:text-text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
                   style={{
                     color: isPlaying ? "var(--color-accent)" : undefined,
                     borderColor: isPlaying ? "var(--color-accent)" : undefined,
