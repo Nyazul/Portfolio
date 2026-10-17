@@ -124,6 +124,36 @@ exists** (see "Before this goes live" below): `GITHUB_TOKEN` is still empty,
 so `lib/github-metrics-fallback.json` is also still empty (`fetchedAt: ""`),
 and the section reports "unavailable".
 
+### Phase 5 — polish, case studies, motion, new content (branch `feat/portfolio-upgrade`)
+- **Accent:** one orange accent per theme (`accent`/`accentDim` in
+  `lib/theme-colors.ts`), reserved for state and emphasis: active nav,
+  focus, selection, status dots, key numbers, top heatmap bucket. Particles
+  and the 3D scene stay monochrome.
+- **Fixes:** root-relative nav hrefs (`/#about`) so nav works from `/work/*`;
+  Inter + JetBrains Mono actually loaded via `next/font`; generated favicon
+  (`app/icon.tsx`); custom 404; skip link; mobile sections no longer forced
+  to 140vh. `<ParticleSystem/>` moved from the root layout into
+  `app/page.tsx`: it was scattering over case-study text, and `/work/*` now
+  ships about half the JS (~159 KB gz vs ~325 KB). Next's per-route "First
+  Load JS" for `/` now *looks* bigger only because three.js moved from the
+  layout's accounting into the page's; the real total for `/` went down
+  slightly.
+- **Case studies:** structured `problem / approach / outcome / lessons` data
+  in `lib/case-studies.ts`, with simplified code samples highlighted at
+  build time by shiki (`components/case-study/CodeBlock.tsx`, server-only),
+  a race-condition diagram, key-facts strip, sticky TOC, prev/next and
+  per-study OG images.
+- **Motion:** `RevealText` section headlines, desktop-only custom `Cursor`
+  (`data-cursor="Label"` on any element gives it a labelled state), hero
+  scroll-out + velocity marquee, editorial case-study rows, stack tiers
+  instead of % bars.
+- **Content:** Principles section (05), "Now" block in About, footer CTA.
+  Section themes were rebalanced. Each component's `SectionSplit theme`
+  must match its `SectionReveal theme` in `app/page.tsx`.
+- **`TODO(nyazul)` convention (`lib/todo.ts`):** facts only you can supply
+  show as dashed accent placeholders in dev and are omitted in production.
+  `grep -rn "TODO" lib components` lists them.
+
 ## Worth checking yourself (nobody has verified these on real devices)
 
 - **iOS Safari pin behavior** (PRD 7.1) — the pinned `ScrollTrigger`

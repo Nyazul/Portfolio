@@ -136,7 +136,7 @@ export function Nav() {
                         href={link.href}
                         aria-current={isActive ? "page" : undefined}
                         tabIndex={isCompact ? -1 : undefined}
-                        className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 transition-colors duration-200 ${
+                        className={`flex items-center gap-1.5 rounded-full px-2 py-1.5 lg:px-3 transition-colors duration-200 ${
                           isActive
                             ? "bg-surface text-text-primary"
                             : "text-text-secondary hover:text-text-primary"

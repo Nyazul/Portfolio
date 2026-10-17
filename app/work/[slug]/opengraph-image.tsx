@@ -34,7 +34,7 @@ export default async function Image({
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
           <div style={{ width: 14, height: 14, borderRadius: 14, background: "#FF6B2C" }} />
           <div style={{ color: "#6B6B6B", fontSize: 26, fontFamily: "monospace" }}>
-            Case study — {siteConfig.name}
+            {`Case study — ${siteConfig.name}`}
           </div>
         </div>
         <div style={{ color: "#F5F5F5", fontSize: 72, fontWeight: 500, lineHeight: 1.05, maxWidth: 1000 }}>
