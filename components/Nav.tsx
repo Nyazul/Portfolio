@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion, useMotionValueEvent, useScroll } from "motion/react";
+import Link from "next/link";
 import { Menu, X } from "lucide-react";
 import { MagneticHover } from "@/components/motion/MagneticHover";
 import { useActiveSection } from "@/lib/hooks/use-active-section";
@@ -104,13 +105,13 @@ export function Nav() {
             isCompact ? "scale-[0.98] px-4 py-2 md:px-5" : "scale-100 px-5 py-3 md:px-6 md:py-3.5"
           }`}
         >
-          <a
+          <Link
             href="/#top"
             onClick={() => setIsMobileOpen(false)}
             className="mr-5 shrink-0 font-mono text-sm font-bold tracking-tight text-text-primary"
           >
             NA
-          </a>
+          </Link>
 
           {/* Collapsing middle section, matching the reference site's
               mechanism: a grid track that tweens 1fr -> 0fr with
@@ -130,7 +131,7 @@ export function Nav() {
                 return (
                   <li key={link.href} className="shrink-0">
                     <MagneticHover strength={8}>
-                      <a
+                      <Link
                         href={link.href}
                         aria-current={isActive ? "page" : undefined}
                         tabIndex={isCompact ? -1 : undefined}
@@ -147,7 +148,7 @@ export function Nav() {
                           />
                         )}
                         {link.label}
-                      </a>
+                      </Link>
                     </MagneticHover>
                   </li>
                 );
@@ -192,7 +193,7 @@ export function Nav() {
               {links.map((link) => {
                 const isActive = activeId === sectionId(link.href);
                 return (
-                  <a
+                  <Link
                     key={link.href}
                     href={link.href}
                     role="menuitem"
@@ -205,7 +206,7 @@ export function Nav() {
                     }`}
                   >
                     {link.label}
-                  </a>
+                  </Link>
                 );
               })}
               <a
