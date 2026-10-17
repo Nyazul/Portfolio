@@ -141,3 +141,12 @@ body {
     padding-bottom: 160px;
   }
 }
+
+/* Shiki output (components/case-study/CodeBlock.tsx) - strip its inline
+   background so the figure's own surface shows, and pad the <pre>. */
+.code-block pre {
+  background: transparent !important;
+  padding: 16px 20px;
+  font-family: var(--font-mono);
+  tab-size: 4;
+}
