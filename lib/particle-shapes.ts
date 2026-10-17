@@ -90,6 +90,13 @@ const stackShape: Point[] = [
   ...linePoints(0.65, 0.58, 0.65, 0.46, 16),
 ];
 
+// Principles: a checklist mark - three ticks beside three lines.
+const principlesShape: Point[] = [0.32, 0.48, 0.64].flatMap((y) => [
+  ...linePoints(0.24, y, 0.28, y + 0.04, 6),
+  ...linePoints(0.28, y + 0.04, 0.36, y - 0.05, 10),
+  ...linePoints(0.44, y, 0.78, y, 22),
+]);
+
 // Experience: a simple timeline mark - a path with milestone nodes.
 const experienceShape: Point[] = [
   ...linePoints(0.25, 0.5, 0.85, 0.5, 40),
@@ -110,6 +117,7 @@ export const sectionShapes: Record<string, Point[]> = {
   architecture: nodeGraphPoints,
   work: caseStudiesShape,
   stack: stackShape,
+  principles: principlesShape,
   experience: experienceShape,
   contact: contactShape,
 };

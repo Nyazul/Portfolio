@@ -13,4 +13,5 @@ export const siteConfig = {
   github: "https://github.com/Nyazul",
   linkedin: "https://linkedin.com/in/nyazul-ansari",
   availability: "Open to backend roles",
+  location: "Pune, India",
 };

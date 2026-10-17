@@ -27,8 +27,8 @@ const experience = [
 
 export function ExperienceTimeline() {
   return (
-    <SectionSplit id="experience" theme="light" shapePoints={sectionShapes.experience}>
-      <SectionHeading index="05" label="Experience" headline="Where I've shipped." />
+    <SectionSplit id="experience" theme="dark" shapePoints={sectionShapes.experience} reverse>
+      <SectionHeading index="06" label="Experience" headline="Where I've shipped." />
       <div className="space-y-16">
         {experience.map((role) => (
           <div

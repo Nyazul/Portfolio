@@ -1,8 +1,23 @@
 import { SectionSplit } from "@/components/motion/SectionSplit";
 import { sectionShapes } from "@/lib/particle-shapes";
 import { SectionHeading } from "@/components/SectionHeading";
+import { TODO, isDev, isFilled } from "@/lib/todo";
+
+// "Now" block - what's true this month. Bump NOW_UPDATED whenever it changes
+// so the stamp stays honest.
+const NOW_UPDATED = "Oct 2026";
+const now = [
+  {
+    label: "Building",
+    value: "A multi-tenant workspace platform at YSM Infosolution: billing, permissions, automation.",
+  },
+  { label: "Studying", value: "M.Sc. Computer Science at Savitribai Phule Pune University." },
+  { label: "Exploring", value: `${TODO}: what you're learning or reading right now` },
+];
 
 export function About() {
+  const visibleNow = isDev ? now : now.filter((n) => isFilled(n.value));
+
   return (
     <SectionSplit id="about" theme="light" shapePoints={sectionShapes.about}>
       <SectionHeading index="01" label="About" headline="Systems that hold up after the demo." />
@@ -22,6 +37,29 @@ export function About() {
           in dev and flakes in production. Most of the case studies below
           are about finding and fixing exactly that class of problem.
         </p>
+      </div>
+
+      <div className="mt-14">
+        <div className="mb-4 flex items-baseline justify-between font-mono text-xs text-text-tertiary">
+          <span>Now</span>
+          <span>Updated {NOW_UPDATED}</span>
+        </div>
+        <dl className="grid gap-px overflow-hidden border border-border bg-border md:grid-cols-3">
+          {visibleNow.map((item) => (
+            <div key={item.label} className="bg-bg p-5">
+              <dt className="font-mono text-xs text-accent">{item.label}</dt>
+              <dd
+                className={
+                  isFilled(item.value)
+                    ? "mt-2 text-sm leading-relaxed text-text-secondary"
+                    : "mt-2 border border-dashed border-accent p-2 font-mono text-xs text-accent"
+                }
+              >
+                {item.value}
+              </dd>
+            </div>
+          ))}
+        </dl>
       </div>
     </SectionSplit>
   );
