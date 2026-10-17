@@ -12,6 +12,7 @@ import { siteConfig, siteUrl } from "@/lib/site-config";
 import { isDev } from "@/lib/todo";
 import { CodeBlock } from "@/components/case-study/CodeBlock";
 import { RaceTimeline } from "@/components/case-study/RaceTimeline";
+import { LeakTimeline } from "@/components/case-study/LeakTimeline";
 
 export function generateStaticParams() {
   return caseStudies.map((c) => ({ slug: c.slug }));
@@ -89,6 +90,7 @@ function Step({ step, index }: { step: ApproachStep; index: number }) {
       </h3>
       <Prose paragraphs={step.body} />
       {step.diagram === "race-timeline" && <RaceTimeline />}
+      {step.diagram === "leak-timeline" && <LeakTimeline />}
       {step.callouts && (
         <div className="mt-8 grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-2">
           {step.callouts.map((c) => (

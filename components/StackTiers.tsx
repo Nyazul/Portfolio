@@ -2,7 +2,7 @@
 
 import { motion } from "motion/react";
 import { usePrefersReducedMotion } from "@/lib/hooks/use-prefers-reduced-motion";
-import { TODO, isDev, isFilled } from "@/lib/todo";
+import { isDev, isFilled } from "@/lib/todo";
 
 // Tiers instead of percentage bars: "90% Java" can't be measured or
 // falsified, but "I use this daily" vs "I'm exploring this" is an honest,
@@ -16,12 +16,22 @@ const tiers = [
   {
     name: "Comfortable",
     note: "Shipped with it, would again",
-    items: ["React", "TypeScript", "Docker", "AWS S3", "REST API design", "RBAC"],
+    items: [
+      "React",
+      "TypeScript",
+      "Docker Compose",
+      "Redis",
+      "AWS S3",
+      "Liquibase",
+      "Linux & systemd",
+      "GitHub Actions",
+      "Sentry",
+    ],
   },
   {
     name: "Exploring",
     note: "Learning in the open",
-    items: [`${TODO}: what you're picking up right now`],
+    items: ["RAG pipelines", "Agentic systems", "LLM inference"],
   },
 ];
 

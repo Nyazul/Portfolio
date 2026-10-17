@@ -47,7 +47,7 @@ let highlighterPromise: ReturnType<typeof createHighlighter> | null = null;
 function getHighlighter() {
   highlighterPromise ??= createHighlighter({
     themes: [theme],
-    langs: ["java", "sql", "yaml"],
+    langs: ["java", "sql", "yaml", "bash"],
   });
   return highlighterPromise;
 }

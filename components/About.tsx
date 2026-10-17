@@ -1,7 +1,7 @@
 import { SectionSplit } from "@/components/motion/SectionSplit";
 import { sectionShapes } from "@/lib/particle-shapes";
 import { SectionHeading } from "@/components/SectionHeading";
-import { TODO, isDev, isFilled } from "@/lib/todo";
+import { isDev, isFilled } from "@/lib/todo";
 
 // "Now" block - what's true this month. Bump NOW_UPDATED whenever it changes
 // so the stamp stays honest.
@@ -9,10 +9,13 @@ const NOW_UPDATED = "Oct 2026";
 const now = [
   {
     label: "Building",
-    value: "A multi-tenant workspace platform at YSM Infosolution: billing, permissions, automation.",
+    value: "Generic WorkFlow at YSM Infosolution: a multi-tenant platform of 18 modules, 174 endpoints and ~33k lines of Java.",
   },
   { label: "Studying", value: "M.Sc. Computer Science at Savitribai Phule Pune University." },
-  { label: "Exploring", value: `${TODO}: what you're learning or reading right now` },
+  {
+    label: "Exploring",
+    value: "LLM system design from the ground up: retrieval (RAG), agentic systems and inference.",
+  },
 ];
 
 export function About() {

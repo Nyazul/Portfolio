@@ -1,9 +1,7 @@
-import { TODO } from "@/lib/todo";
-
 export { TODO, isFilled } from "@/lib/todo";
 
 export type CodeSample = {
-  lang: "java" | "sql" | "yaml";
+  lang: "java" | "sql" | "yaml" | "bash";
   caption: string;
   snippet: string;
 };
@@ -15,7 +13,7 @@ export type ApproachStep = {
   // Small labelled cards rendered as a grid under the body.
   callouts?: { label: string; body: string }[];
   // Named inline diagram, rendered by the case-study page.
-  diagram?: "race-timeline";
+  diagram?: "race-timeline" | "leak-timeline";
 };
 
 export type CaseStudy = {
@@ -36,20 +34,121 @@ export type CaseStudy = {
 
 export const caseStudies: CaseStudy[] = [
   {
+    slug: "zombie-process-outage",
+    title: "The server that died every 5.4 days",
+    excerpt:
+      "Every five or six days the production server stopped accepting SSH, the API returned 500s and even monitoring went dark. A reboot fixed it, until it came back. The cause was a Kafka health check quietly leaking one process every 15 seconds.",
+    role: "Backend engineer, owning deployment",
+    timeframe: "Sep 2026",
+    stack: ["Docker", "Linux", "Kafka", "systemd"],
+    keyFacts: [
+      { label: "Days of uptime until lockup", value: "5.4" },
+      { label: "Zombie processes leaked per hour", value: "240" },
+      { label: "Lines of config in the fix", value: "1" },
+    ],
+    problem: [
+      "Generic WorkFlow runs as a Docker Compose stack on a single VPS: the Spring Boot backend, PostgreSQL, Kafka and an Nginx-served frontend. In September 2026 the whole machine started becoming unresponsive every five to six days.",
+      "It wasn't one service failing. SSH dropped with 'Connection closed'. The backend returned 500s because it couldn't create threads or open database connections. Docker health checks failed with 'OCI runtime exec failed: resource temporarily unavailable'. The hosting control panel stopped responding.",
+      "Worse, SAR and cron stopped collecting data too, so the monitoring went blind at the exact moment it was needed. A reboot fixed everything, wiped whatever evidence there was, and about five days later it happened again.",
+    ],
+    approach: [
+      {
+        heading: "Read the symptoms as one failure",
+        body: [
+          "Every symptom had the same shape: something failed when it tried to start a new process or thread. SSH needs to fork a session, the JVM needs a native thread for a connection, and Docker needs a process for each health check. 'Resource temporarily unavailable' is EAGAIN, the kernel refusing to create a task.",
+          "The cadence was the other clue. A failure that arrives on a steady schedule and resets on reboot is usually a leak with a constant rate, filling a fixed-size table. Here the table was the kernel's task table, capped by threads-max at 31,069 on this VPS.",
+        ],
+        diagram: "leak-timeline",
+      },
+      {
+        heading: "Find what was filling the table",
+        body: [
+          "The task table was filling with zombies: exited processes whose parent never collected their exit status. They were leftovers of the Kafka container's health check, a small TCP probe Docker ran inside the container every 15 seconds.",
+          "Inside a container, PID 1 inherits any orphaned process and is responsible for reaping it with wait(). In the Kafka container PID 1 was the JVM itself, and the JVM never reaps children it didn't start. Each probe left one zombie behind: 4 a minute, 240 an hour.",
+          "That makes the outage pure arithmetic. 31,069 slots divided by 240 leaked per hour is about 129 hours, or 5.4 days of uptime, before every fork() on the host fails.",
+        ],
+        code: {
+          lang: "yaml",
+          caption: "The health check, run every 15s inside the Kafka container",
+          snippet: `kafka:
+  image: apache/kafka:3.7.0
+  healthcheck:
+    test: ["CMD-SHELL", "timeout 5 bash -c 'exec 3<>/dev/tcp/127.0.0.1/9092'"]
+    interval: 15s`,
+        },
+      },
+      {
+        heading: "Give the container a real init",
+        body: [
+          "The fix is one line. With init: true, Docker starts tini as the container's PID 1 and runs the JVM under it. tini's whole job is to reap orphaned children, so health-check processes are collected the moment they exit.",
+        ],
+        code: {
+          lang: "yaml",
+          caption: "The fix: tini as PID 1 reaps health-check children",
+          snippet: `kafka:
+  image: apache/kafka:3.7.0
+  # Use tini as PID 1 so health-check child processes are reaped.
+  # Without it, each 15s probe leaves a zombie under the Kafka JVM.
+  init: true`,
+        },
+      },
+      {
+        heading: "Watch the resource that actually ran out",
+        body: [
+          "The exhausted resource was one that usual host dashboards don't graph, so I added a small monitor for it: a systemd timer that runs every 10 minutes and records the task count against threads-max, the zombie count and the load average.",
+          "It warns at 80% of threads-max, escalates at 95%, and also alerts on a zombie spike. Alerts fire once per state change rather than every run, go to syslog and optionally to a webhook, and the script always exits 0 so the timer itself never flaps.",
+          "The first version had its own bug: it parsed the wrong field of /proc/loadavg. The fourth field is running/total, and only the total is the number that matters. Testing the monitor against the real host caught it the same day.",
+        ],
+        code: {
+          lang: "bash",
+          caption: "Excerpt from the monitor (simplified)",
+          snippet: `THREADS_MAX="$(cat /proc/sys/kernel/threads-max)"
+# /proc/loadavg field 4 is "running/total" (e.g. "9/412") - we want the total.
+TASKS="$(awk '{split($4,a,"/"); print a[2]}' /proc/loadavg)"
+ZOMBIES="$(ps -eo stat | grep -c '^Z')"
+
+WARN=$(( THREADS_MAX * 80 / 100 ))
+CRIT=$(( THREADS_MAX * 95 / 100 ))
+
+if [ "$TASKS" -ge "$CRIT" ] && [ ! -f "$STATE/crit" ]; then
+  touch "$STATE/crit"
+  alert CRITICAL "Kernel task count $TASKS >= $CRIT - fork() will fail host-wide"
+fi`,
+        },
+        callouts: [
+          { label: "Every 10 minutes", body: "systemd oneshot + timer appends a history line: tasks, zombies, load." },
+          { label: "80% / 95%", body: "WARNING and CRITICAL thresholds against the host's own threads-max." },
+          { label: "Once per transition", body: "State files in /run mean one alert per change, not one per run." },
+          { label: "Webhook optional", body: "Slack, Discord or ntfy push; syslog and a log file either way." },
+        ],
+      },
+    ],
+    outcome: [
+      "With tini reaping health-check children the leak stopped, and the server no longer has a countdown on it. The monitor's history line now gives a cheap, continuous record of task-table pressure, so a leak like this would show up as a rising line days before it became an outage.",
+    ],
+    lessons: [
+      "PID 1 has a job. If the process in that slot isn't an init, anything that orphans children inside the container leaks.",
+      "Health checks are production code. One that runs every 15 seconds runs 5,760 times a day, so any per-run leak compounds fast.",
+      "A failure on a steady schedule is a rate problem. Find the table that's filling and divide.",
+      "Monitor the resource that actually runs out, not only the ones that are easy to graph.",
+    ],
+    nodeId: "monitoring",
+  },
+  {
     slug: "billing-concurrency",
     title: "Concurrency-safe subscription billing",
     excerpt:
       "Two concurrent requests could both read the same usage quota before either wrote back, letting both through when only one should have been allowed. The fix: make the database enforce the invariant.",
     role: "Backend engineer",
-    timeframe: "2025",
+    timeframe: "2026",
     stack: ["Spring Boot", "PostgreSQL", "JPA"],
     keyFacts: [
       { label: "Statements to enforce quota", value: "1" },
       { label: "Typed violation responses", value: "3" },
-      { label: "Concurrent requests load-tested", value: `${TODO}: e.g. 500` },
+      { label: "Metered limits across 3 plans", value: "4" },
     ],
     problem: [
-      "The multi-tenant workspace platform bills on usage: each plan grants a quota per metric, and every metered action has to check that quota before it's allowed through.",
+      "The multi-tenant workspace platform bills on usage. Each plan (Basic, Pro or Enterprise) grants a quota per metric: record groups, records per group, automations and active users. Every metered action has to check that quota before it's allowed through.",
       "The first implementation did the obvious thing: read the usage row, compare it against the quota in Java, then write the incremented value back. That's correct when requests arrive one at a time, which is exactly how they arrive in a demo.",
       "Under concurrency it isn't. Two requests can both read the same 'one unit left' state before either writes, both pass the check, and both increment. The workspace ends up over quota with no error anywhere, and nothing in the logs says anything went wrong.",
     ],
@@ -132,10 +231,10 @@ if (usageRepository.tryConsume(workspaceId, metric, amount) == 0) {
     excerpt:
       "An architecture test started flagging circular dependencies between domains. They worked fine at runtime but broke the system's core promise: domains talk through events, not direct calls.",
     role: "Backend engineer",
-    timeframe: "2025",
+    timeframe: "2026",
     stack: ["Spring Modulith", "Kafka", "Java"],
     keyFacts: [
-      { label: "Module cycles flagged", value: `${TODO}: e.g. 4` },
+      { label: "Modules verified on every build", value: "18" },
       { label: "Cycles remaining", value: "0" },
       { label: "Duplicate audit writes after fix", value: "0" },
     ],
@@ -178,20 +277,23 @@ void on(WorkspaceDeleted event) {
       {
         heading: "Invert the deeper cycles with owned contracts",
         body: [
-          "A couple of cycles couldn't be solved with events, because the upstream domain genuinely needed an answer back. For those, the upstream module defines an interface for what it needs and exposes it as a named interface. The downstream module implements it, and upstream never imports a single downstream type.",
+          "Some cycles couldn't be solved with events, because the upstream domain genuinely needed an answer back. The clearest case was permissions: the permission module has to check that a form, automation or record exists in a workspace before granting access to it, and those modules already depended on permissions.",
+          "So the permission module defines a registry port for what it needs, and the form, automation and record modules each implement it with an adapter. Permissions never imports a single type from the modules it guards.",
         ],
         code: {
           lang: "java",
-          caption: "Simplified: upstream owns the contract, downstream fulfils it",
-          snippet: `// In the upstream module, exposed as a named interface.
-@NamedInterface("spi")
-public interface MemberDirectory {
-    Optional<MemberRef> find(UUID memberId);
+          caption: "Simplified: the permission module owns the port",
+          snippet: `// identity/permission - the module that needs the answer owns the contract.
+public interface ResourceRegistryPort {
+    ResourceType resourceType();
+    boolean existsInWorkspace(UUID resourceId, UUID workspaceId);
 }
 
-// In the downstream module - depends on upstream, never the reverse.
+// record/api/lookup - depends on permission, never the reverse.
 @Component
-class MemberDirectoryAdapter implements MemberDirectory { /* ... */ }`,
+class RecordRegistryAdapter implements RecordGroupScopedResourceRegistryPort {
+    /* answers from RecordRepository */
+}`,
         },
       },
       {
@@ -217,7 +319,7 @@ class MemberDirectoryAdapter implements MemberDirectory { /* ... */ }`,
     excerpt:
       "An AI coding agent merged two related but different task types into one system. Reading its output line by line against the real permission and visibility rules surfaced 17 defects before release.",
     role: "Reviewer & backend engineer",
-    timeframe: `${TODO}: e.g. 2025`,
+    timeframe: "2026",
     stack: ["Spring Boot", "Code review", "RBAC"],
     keyFacts: [
       { label: "Defects caught before release", value: "17" },

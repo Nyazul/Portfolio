@@ -26,5 +26,5 @@ export const architectureNodes: ArchNode[] = [
   { id: "database", label: "Database", description: "Schema design, concurrency-safe writes, query performance", caseStudySlug: "billing-concurrency", visual: "database" },
   { id: "storage", label: "Storage", description: "File/object storage lifecycle management", caseStudySlug: "s3-document-lifecycle", visual: "storage" },
   { id: "workers", label: "Workers", description: "Background and scheduled processing", caseStudySlug: "agent-code-review", visual: "compute" },
-  { id: "monitoring", label: "Monitoring", description: "Audit logging, observability", caseStudySlug: null, visual: "monitor" },
+  { id: "monitoring", label: "Monitoring", description: "Audit logging, observability, host-level alerting on the resources that actually run out", caseStudySlug: "zombie-process-outage", visual: "monitor" },
 ];
