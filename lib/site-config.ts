@@ -12,6 +12,9 @@ export const siteConfig = {
   email: "ansarinyazul2003@gmail.com",
   github: "https://github.com/Nyazul",
   linkedin: "https://linkedin.com/in/nyazul-ansari",
+  // This site's own source - the status panel links the live commit here.
+  // Set to "" if the repository is ever made private.
+  sourceRepo: "https://github.com/Nyazul/Portfolio",
   availability: "Open to backend roles",
   location: "Pune, India",
 };

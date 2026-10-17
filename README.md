@@ -169,6 +169,33 @@ and the section reports "unavailable".
 - **Hero**: intro lands in ~1 s instead of ~5 s; scroll-out blur only on
   `high`. Marquee stops offscreen; the nav's (invisible) backdrop blur is gone.
 
+### Phase 6 — interactive proof, status, palette, notes
+- **"Break it yourself" playground** in the billing case study
+  (`components/case-study/QuotaRacePlayground.tsx`, model in
+  `lib/quota-race.ts`): two requests race for the last unit of quota under
+  three implementations (read→check→write, check then atomic +1, guarded
+  UPDATE) with an adjustable arrival gap. Wired via `playground:
+  "quota-race"` on an `ApproachStep`.
+- **Live status** (`app/api/health/route.ts`, poller `lib/health.ts`): the
+  footer's `StatusPanel` and the hero's `HeroRequestLog` share one poller,
+  which only runs while one of them is on screen and the tab is visible.
+  Latency is measured from the visitor's browser; build SHA/time come from
+  `next.config.mjs` (`VERCEL_GIT_COMMIT_SHA` or local git). There is no
+  real uptime percentage - that needs an external monitor (e.g. Better
+  Stack / UptimeRobot) if you want one later.
+- **⌘K / Ctrl+K terminal palette** (`components/CommandPalette.tsx`),
+  mounted in the root layout with only slugs/titles passed in. `help`
+  lists commands; a few are unlisted (`sudo hire-me`, `rm -rf /`,
+  `coffee`, `vim`).
+- **Shared-element route transitions** via `next-view-transitions`:
+  case-study titles (`lib/view-transitions.ts`) and note titles morph
+  between list and page; the nav is pinned with its own transition name.
+- **Notes** (`lib/notes.ts`, `/notes`, `/notes/[slug]`, `/notes/rss.xml`,
+  sitemap). Notes marked `draft: true` exist in dev only. **The two seeded
+  notes are drafts written from case-study facts - review/rewrite them in
+  your own voice, then set `draft: false` to publish.** The footer link and
+  palette entries appear once something is published.
+
 ## Worth checking yourself (nobody has verified these on real devices)
 
 - **iOS Safari pin behavior** (PRD 7.1) — the pinned `ScrollTrigger`

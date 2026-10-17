@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { caseStudies } from "@/lib/case-studies";
+import { getNotes } from "@/lib/notes";
 import { siteUrl } from "@/lib/site-config";
 
 export default function sitemap(): MetadataRoute.Sitemap {
@@ -13,5 +14,18 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.8,
   }));
 
-  return [...staticRoutes, ...caseStudyRoutes];
+  const notes = getNotes();
+  const noteRoutes: MetadataRoute.Sitemap = notes.length
+    ? [
+        { url: `${siteUrl}/notes`, changeFrequency: "weekly", priority: 0.6 },
+        ...notes.map((note) => ({
+          url: `${siteUrl}/notes/${note.slug}`,
+          lastModified: note.date,
+          changeFrequency: "yearly" as const,
+          priority: 0.6,
+        })),
+      ]
+    : [];
+
+  return [...staticRoutes, ...caseStudyRoutes, ...noteRoutes];
 }

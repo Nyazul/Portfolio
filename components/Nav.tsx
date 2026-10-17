@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion, useMotionValueEvent, useScroll } from "motion/react";
 import Link from "next/link";
 import { Menu, X } from "lucide-react";
+import { OPEN_PALETTE_EVENT } from "@/components/CommandPalette";
 import { MagneticHover } from "@/components/motion/MagneticHover";
 import { useActiveSection } from "@/lib/hooks/use-active-section";
 import { usePrefersReducedMotion } from "@/lib/hooks/use-prefers-reduced-motion";
@@ -49,6 +50,16 @@ export function Nav() {
   const { scrollY } = useScroll();
   const activeId = useActiveSection(sectionIds);
   const prefersReducedMotion = usePrefersReducedMotion();
+  // Shortcut hint for the command palette: ⌘ on Apple devices, Ctrl
+  // elsewhere. Starts as ⌘ on the server and corrects after mount.
+  const [modKey, setModKey] = useState("⌘");
+  useEffect(() => {
+    if (!/Mac|iPhone|iPad|iPod/i.test(navigator.userAgent)) setModKey("Ctrl ");
+  }, []);
+  const openPalette = () => {
+    setIsMobileOpen(false);
+    window.dispatchEvent(new Event(OPEN_PALETTE_EVENT));
+  };
 
   // useMotionValueEvent instead of a scroll listener + setState-per-pixel:
   // scrollY updates on every scroll tick without triggering a React render,
@@ -89,7 +100,7 @@ export function Nav() {
   }, [isMobileOpen]);
 
   return (
-    <header className="fixed inset-x-0 top-4 z-50 flex justify-center px-4 md:top-6 md:px-6">
+    <header className="fixed inset-x-0 top-4 z-50 flex justify-center px-4 [view-transition-name:site-nav] md:top-6 md:px-6">
       {/* flex-col + items-center, not mx-auto on a fixed max-width block:
           the nav itself needs to size to its own content (a real floating
           pill, width: fit-content) so that collapsing the middle links
@@ -158,6 +169,15 @@ export function Nav() {
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={openPalette}
+              aria-label="Open command palette"
+              data-cursor="Terminal"
+              className="hidden shrink-0 items-center rounded-full border border-border px-2.5 py-1 font-mono text-xs text-text-tertiary transition-colors duration-200 hover:border-text-primary hover:text-text-primary lg:inline-flex"
+            >
+              <kbd className="font-mono">{modKey}K</kbd>
+            </button>
             <MagneticHover strength={8} className="hidden md:block">
               <a
                 href="/Nyazul_Ansari_Resume.pdf"
@@ -210,6 +230,14 @@ export function Nav() {
                   </Link>
                 );
               })}
+              <button
+                type="button"
+                role="menuitem"
+                onClick={openPalette}
+                className="rounded-full px-4 py-2 text-left font-mono text-sm text-text-secondary transition-colors duration-200 hover:text-text-primary"
+              >
+                <span className="text-accent">$</span> terminal
+              </button>
               <a
                 href="/Nyazul_Ansari_Resume.pdf"
                 role="menuitem"

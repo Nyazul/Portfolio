@@ -6,6 +6,7 @@ import { siteConfig } from "@/lib/site-config";
 import { MagneticHover } from "@/components/motion/MagneticHover";
 import { InvertBlobHover } from "@/components/motion/InvertBlobHover";
 import { VelocityMarquee } from "@/components/motion/VelocityMarquee";
+import { HeroRequestLog } from "@/components/HeroRequestLog";
 import { useParticleTarget } from "@/lib/hooks/use-particle-target";
 import { usePrefersReducedMotion } from "@/lib/hooks/use-prefers-reduced-motion";
 import { useDeviceTier } from "@/lib/device-tier";
@@ -172,6 +173,7 @@ export function Hero() {
             </span>
           </motion.a>
         </div>
+        <HeroRequestLog delay={introDelay + 0.8} />
       </motion.div>
       <VelocityMarquee
         items={MARQUEE_ITEMS}

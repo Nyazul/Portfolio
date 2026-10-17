@@ -1,4 +1,5 @@
-import Link from "next/link";
+import { Link } from "next-view-transitions";
+import { caseTitleTransition } from "@/lib/view-transitions";
 import { caseStudies } from "@/lib/case-studies";
 import { SectionSplit } from "@/components/motion/SectionSplit";
 import { SectionHeading } from "@/components/SectionHeading";
@@ -28,7 +29,10 @@ export function CaseStudies() {
                 {String(i + 1).padStart(2, "0")}
               </span>
               <div className="relative">
-                <h3 className="text-xl font-medium text-text-primary transition-transform duration-500 ease-[var(--ease-out-expo)] group-hover:translate-x-2 md:text-2xl">
+                <h3
+                  className="text-xl font-medium text-text-primary transition-transform duration-500 ease-[var(--ease-out-expo)] group-hover:translate-x-2 md:text-2xl"
+                  style={{ viewTransitionName: caseTitleTransition(study.slug) }}
+                >
                   {study.title}
                 </h3>
                 <p className="mt-3 line-clamp-2 max-w-xl text-sm leading-relaxed text-text-secondary">

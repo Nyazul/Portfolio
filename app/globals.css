@@ -182,3 +182,22 @@ html.custom-cursor [contenteditable="true"] {
   .status-ping,
   .scroll-cue { animation: none; }
 }
+
+/* Route view transitions (next-view-transitions, see app/layout.tsx). The
+   page itself crossfades quickly; named elements - case-study titles, the
+   nav - morph between their old and new positions. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.25s;
+}
+::view-transition-group(*) {
+  animation-duration: 0.55s;
+  animation-timing-function: var(--ease-out-expo);
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}

@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
+import { Link } from "next-view-transitions";
+import { caseTitleTransition } from "@/lib/view-transitions";
 import type { Metadata } from "next";
 import {
   caseStudies,
@@ -13,6 +14,7 @@ import { isDev } from "@/lib/todo";
 import { CodeBlock } from "@/components/case-study/CodeBlock";
 import { RaceTimeline } from "@/components/case-study/RaceTimeline";
 import { LeakTimeline } from "@/components/case-study/LeakTimeline";
+import { QuotaRacePlayground } from "@/components/case-study/QuotaRacePlayground";
 
 export function generateStaticParams() {
   return caseStudies.map((c) => ({ slug: c.slug }));
@@ -104,6 +106,7 @@ function Step({ step, index }: { step: ApproachStep; index: number }) {
         </div>
       )}
       {step.code && <CodeBlock code={step.code} />}
+      {step.playground === "quota-race" && <QuotaRacePlayground />}
     </div>
   );
 }
@@ -163,7 +166,10 @@ export default async function CaseStudyPage({
           Case study {String(index + 1).padStart(2, "0")} /{" "}
           {String(caseStudies.length).padStart(2, "0")}
         </p>
-        <h1 className="mt-4 max-w-4xl text-[clamp(2.25rem,6vw,4.75rem)] leading-[1.02] font-medium tracking-tight text-text-primary">
+        <h1
+          className="mt-4 max-w-4xl text-[clamp(2.25rem,6vw,4.75rem)] leading-[1.02] font-medium tracking-tight text-text-primary"
+          style={{ viewTransitionName: caseTitleTransition(study.slug) }}
+        >
           {study.title}
         </h1>
         <p className="mt-8 max-w-2xl text-lg leading-relaxed text-text-secondary md:text-xl">

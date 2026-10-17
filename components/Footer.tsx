@@ -2,8 +2,11 @@ import { siteConfig } from "@/lib/site-config";
 import { MagneticHover } from "@/components/motion/MagneticHover";
 import { InvertBlobHover } from "@/components/motion/InvertBlobHover";
 import { LocalTime } from "@/components/LocalTime";
+import { StatusPanel } from "@/components/StatusPanel";
+import { getNotes } from "@/lib/notes";
 
 const links = [
+  ...(getNotes().length ? [{ href: "/notes", label: "Notes" }] : []),
   { href: siteConfig.github, label: "GitHub" },
   { href: siteConfig.linkedin, label: "LinkedIn" },
   { href: "/Nyazul_Ansari_Resume.pdf", label: "Résumé" },
@@ -32,7 +35,9 @@ export function Footer() {
           </InvertBlobHover>
         </MagneticHover>
 
-        <div className="mt-20 grid gap-10 border-t border-border pt-8 text-sm text-text-tertiary md:grid-cols-3">
+        <StatusPanel />
+
+        <div className="mt-16 grid gap-10 border-t border-border pt-8 text-sm text-text-tertiary md:grid-cols-3">
           <div className="space-y-1">
             <p className="text-text-primary">{siteConfig.email}</p>
             <p>

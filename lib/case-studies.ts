@@ -14,6 +14,8 @@ export type ApproachStep = {
   callouts?: { label: string; body: string }[];
   // Named inline diagram, rendered by the case-study page.
   diagram?: "race-timeline" | "leak-timeline";
+  // Named interactive demo, rendered after the step's code sample.
+  playground?: "quota-race";
 };
 
 export type CaseStudy = {
@@ -196,6 +198,7 @@ if (usageRepository.tryConsume(workspaceId, metric, amount) == 0) {
     throw new QuotaExceededException(workspaceId, metric);
 }`,
         },
+        playground: "quota-race",
       },
       {
         heading: "Version plans as snapshots",
