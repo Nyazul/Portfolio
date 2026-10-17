@@ -1,12 +1,6 @@
-// Any string starting with this marker is a fact only Nyazul can supply
-// (a real number, a date). It renders as a visible dashed placeholder in dev
-// and is dropped entirely in production - see isFilled() below - so an
-// unfilled TODO can never ship as a fake-looking value.
-export const TODO = "TODO(nyazul)";
+import { TODO } from "@/lib/todo";
 
-export function isFilled(value: string | undefined): value is string {
-  return !!value && !value.startsWith(TODO);
-}
+export { TODO, isFilled } from "@/lib/todo";
 
 export type CodeSample = {
   lang: "java" | "sql" | "yaml";

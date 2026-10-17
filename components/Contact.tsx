@@ -2,13 +2,12 @@ import { ContactForm } from "@/components/ContactForm";
 import { siteConfig } from "@/lib/site-config";
 import { SectionSplit } from "@/components/motion/SectionSplit";
 import { sectionShapes } from "@/lib/particle-shapes";
+import { SectionHeading } from "@/components/SectionHeading";
 
 export function Contact() {
   return (
     <SectionSplit id="contact" theme="dark" shapePoints={sectionShapes.contact} reverse>
-      <h2 className="mb-12 font-mono text-sm text-text-tertiary">
-        06 / Contact
-      </h2>
+      <SectionHeading index="06" label="Contact" headline="Let's build something durable." />
       <div className="grid gap-12 md:grid-cols-2">
         <div>
           <p className="max-w-md text-lg text-text-secondary">
@@ -17,7 +16,7 @@ export function Contact() {
           </p>
           <a
             href={`mailto:${siteConfig.email}`}
-            className="mt-6 inline-block text-text-primary underline underline-offset-4"
+            className="mt-6 inline-block text-text-primary underline decoration-accent decoration-2 underline-offset-4 transition-colors hover:text-accent"
           >
             {siteConfig.email}
           </a>

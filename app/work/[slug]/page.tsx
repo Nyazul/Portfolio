@@ -9,6 +9,7 @@ import {
   type ApproachStep,
 } from "@/lib/case-studies";
 import { siteConfig, siteUrl } from "@/lib/site-config";
+import { isDev } from "@/lib/todo";
 import { CodeBlock } from "@/components/case-study/CodeBlock";
 import { RaceTimeline } from "@/components/case-study/RaceTimeline";
 
@@ -31,7 +32,6 @@ export async function generateMetadata({
   };
 }
 
-const isDev = process.env.NODE_ENV === "development";
 
 // Unfilled TODO(nyazul) values: a dashed placeholder in dev so the gap is
 // obvious while editing, nothing at all in production.

@@ -6,6 +6,7 @@ import { architectureNodes } from "@/lib/architecture-nodes";
 import { SectionSplit } from "@/components/motion/SectionSplit";
 import { sectionShapes } from "@/lib/particle-shapes";
 import { ArchitectureVisualizer3D } from "@/components/ArchitectureVisualizer3D";
+import { SectionHeading } from "@/components/SectionHeading";
 
 // Phase 1 shipped the static monochrome grid as the required fallback
 // FIRST (PRD Section 6.3 / 9.1), not bolted on after the 3D version - it
@@ -25,16 +26,16 @@ export function ArchitectureSection() {
       shapePoints={sectionShapes.architecture}
       reverse
     >
-      <div className="mb-12 flex items-baseline justify-between">
-        <h2 className="font-mono text-sm text-text-tertiary">
-          02 / Architecture
-        </h2>
-        <p className="text-sm text-text-tertiary">
-          {show3D
+      <SectionHeading
+        index="02"
+        label="Architecture"
+        headline="Where the work lives."
+        aside={
+          show3D
             ? "Hover or tab through nodes"
-            : "Static view — 3D loads on desktop"}
-        </p>
-      </div>
+            : "Static view — 3D loads on desktop"
+        }
+      />
       <div className="relative">
         <div
           className={
@@ -58,6 +59,7 @@ export function ArchitectureSection() {
               <Link
                 key={node.id}
                 href={`/work/${node.caseStudySlug}`}
+                data-cursor="Open"
                 className="block min-h-[160px]"
               >
                 {content}

@@ -3,7 +3,7 @@ import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Nav } from "@/components/Nav";
 import { Footer } from "@/components/Footer";
-import { ParticleSystem } from "@/components/motion/ParticleSystem";
+import { Cursor } from "@/components/motion/Cursor";
 import { siteConfig, siteUrl } from "@/lib/site-config";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
@@ -53,10 +53,10 @@ export default function RootLayout({
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(personJsonLd) }}
         />
-        <ParticleSystem />
         <Nav />
         {children}
         <Footer />
+        <Cursor />
       </body>
     </html>
   );

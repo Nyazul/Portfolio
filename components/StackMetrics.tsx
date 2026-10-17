@@ -1,6 +1,3 @@
-import { Bar } from "@/components/charts/bar";
-import { BarChart } from "@/components/charts/bar-chart";
-import { BarYAxis } from "@/components/charts/bar-y-axis";
 import {
   type HeatmapColumn,
   HeatmapCells,
@@ -10,18 +7,11 @@ import {
   HeatmapXAxis,
 } from "@/components/charts/heatmap";
 import { RingChart } from "@/components/charts/ring-chart";
-import { ChartTooltip } from "@/components/charts/tooltip";
 import { SectionSplit } from "@/components/motion/SectionSplit";
 import { sectionShapes } from "@/lib/particle-shapes";
 import { getGithubMetrics } from "@/lib/github-metrics";
-
-const stack = [
-  { name: "Java / Spring Boot", level: 90 },
-  { name: "PostgreSQL", level: 80 },
-  { name: "Apache Kafka", level: 75 },
-  { name: "React / TypeScript", level: 70 },
-  { name: "Docker", level: 70 },
-];
+import { SectionHeading } from "@/components/SectionHeading";
+import { StackTiers } from "@/components/StackTiers";
 
 function formatAsOf(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -132,7 +122,8 @@ async function GithubLiveStats() {
   );
 }
 
-// Phase 1: self-assessed static bars, labeled as such.
+// Tiered stack (Daily / Comfortable / Exploring) instead of the original
+// self-assessed % bars - see components/StackTiers.tsx for why.
 // Phase 4: live GitHub data (public repo count, days-active contribution
 // ring, contribution calendar) below via a server-side, hourly-cached fetch
 // with a cached-snapshot fallback - see lib/github-metrics.ts and PRD 9.4.
@@ -140,33 +131,13 @@ async function GithubLiveStats() {
 export function StackMetrics() {
   return (
     <SectionSplit id="stack" theme="dark" shapePoints={sectionShapes.stack} reverse>
-      <div className="mb-12 flex items-baseline justify-between">
-        <h2 className="font-mono text-sm text-text-tertiary">04 / Stack</h2>
-        <p className="text-sm text-text-tertiary">Live GitHub stats</p>
+      <SectionHeading index="04" label="Stack" headline="Tools, honestly rated." />
+
+      <div className="mb-16">
+        <StackTiers />
       </div>
 
-      <div className="mb-12 max-w-2xl">
-        <BarChart
-          aspectRatio="3 / 2"
-          data={stack.map((item) => ({ name: item.name, level: item.level }))}
-          margin={{ top: 8, right: 16, bottom: 8, left: 140 }}
-          orientation="horizontal"
-          xDataKey="name"
-        >
-          <Bar
-            dataKey="level"
-            fill="var(--chart-line-primary)"
-            lineCap="round"
-            minBarHeight={4}
-          />
-          <BarYAxis />
-          <ChartTooltip showDatePill={false} />
-        </BarChart>
-        <p className="mt-6 text-xs text-text-tertiary">
-          Self-assessed, not derived from any external metric.
-        </p>
-      </div>
-
+      <p className="mb-6 font-mono text-sm text-text-tertiary">Live from GitHub</p>
       <GithubLiveStats />
     </SectionSplit>
   );

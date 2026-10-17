@@ -1,10 +1,11 @@
 import { SectionSplit } from "@/components/motion/SectionSplit";
 import { sectionShapes } from "@/lib/particle-shapes";
+import { SectionHeading } from "@/components/SectionHeading";
 
 export function About() {
   return (
     <SectionSplit id="about" theme="light" shapePoints={sectionShapes.about}>
-      <h2 className="mb-8 font-mono text-sm text-text-tertiary">01 / About</h2>
+      <SectionHeading index="01" label="About" headline="Systems that hold up after the demo." />
       <div className="max-w-2xl space-y-6 text-lg leading-normal text-text-secondary">
         <p>
           I&apos;m a Java engineer at YSM Infosolution, finishing an M.Sc. in

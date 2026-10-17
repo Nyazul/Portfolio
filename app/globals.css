@@ -150,3 +150,35 @@ body {
   font-family: var(--font-mono);
   tab-size: 4;
 }
+
+/* Set by components/motion/Cursor.tsx only while the custom cursor is
+   active (fine pointer, motion allowed). Text inputs keep the I-beam. */
+html.custom-cursor,
+html.custom-cursor * {
+  cursor: none !important;
+}
+html.custom-cursor input,
+html.custom-cursor textarea,
+html.custom-cursor select,
+html.custom-cursor [contenteditable="true"] {
+  cursor: text !important;
+}
+
+@keyframes status-ping {
+  0% { transform: scale(1); opacity: 0.7; }
+  80%, 100% { transform: scale(2.6); opacity: 0; }
+}
+.status-ping {
+  animation: status-ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+@keyframes scroll-cue {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(200%); }
+}
+.scroll-cue {
+  animation: scroll-cue 1.6s var(--ease-standard) infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .status-ping,
+  .scroll-cue { animation: none; }
+}

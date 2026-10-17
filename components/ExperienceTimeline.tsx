@@ -1,5 +1,6 @@
 import { SectionSplit } from "@/components/motion/SectionSplit";
 import { sectionShapes } from "@/lib/particle-shapes";
+import { SectionHeading } from "@/components/SectionHeading";
 
 const experience = [
   {
@@ -27,9 +28,7 @@ const experience = [
 export function ExperienceTimeline() {
   return (
     <SectionSplit id="experience" theme="light" shapePoints={sectionShapes.experience}>
-      <h2 className="mb-12 font-mono text-sm text-text-tertiary">
-        05 / Experience
-      </h2>
+      <SectionHeading index="05" label="Experience" headline="Where I've shipped." />
       <div className="space-y-16">
         {experience.map((role) => (
           <div

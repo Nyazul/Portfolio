@@ -1,9 +1,11 @@
 "use client";
 
-import { motion } from "motion/react";
+import { useRef } from "react";
+import { motion, useScroll, useTransform } from "motion/react";
 import { siteConfig } from "@/lib/site-config";
 import { MagneticHover } from "@/components/motion/MagneticHover";
 import { InvertBlobHover } from "@/components/motion/InvertBlobHover";
+import { VelocityMarquee } from "@/components/motion/VelocityMarquee";
 import { useParticleTarget } from "@/lib/hooks/use-particle-target";
 import { usePrefersReducedMotion } from "@/lib/hooks/use-prefers-reduced-motion";
 
@@ -22,18 +24,62 @@ import { usePrefersReducedMotion } from "@/lib/hooks/use-prefers-reduced-motion"
 const REVEAL_STAGGER = 0.2;
 const REVEAL_DURATION = 2.9;
 
+const MARQUEE_ITEMS = [
+  "Java",
+  "Spring Boot",
+  "Apache Kafka",
+  "PostgreSQL",
+  "Spring Modulith",
+  "Multi-tenancy",
+  "Event-driven",
+  "Concurrency",
+  "AWS S3",
+  "Docker",
+];
+
 export function Hero() {
   const targetRef = useParticleTarget("top", "dark", null);
   const prefersReducedMotion = usePrefersReducedMotion();
   const nameChars = siteConfig.name.split("");
+  const introDelay = nameChars.length * REVEAL_STAGGER;
+
+  // Scroll-out: as the hero leaves the viewport its content recedes (scale,
+  // fade, slight blur) instead of just sliding off. Driven by scroll
+  // position, so it reverses exactly when scrolling back up.
+  const sectionRef = useRef<HTMLElement>(null);
+  const { scrollYProgress } = useScroll({
+    target: sectionRef,
+    offset: ["start start", "end start"],
+  });
+  const scale = useTransform(scrollYProgress, [0, 1], [1, 0.92]);
+  const opacity = useTransform(scrollYProgress, [0, 0.8], [1, 0]);
+  const blur = useTransform(scrollYProgress, [0, 1], ["blur(0px)", "blur(6px)"]);
 
   return (
     <section
       id="top"
-      className="section-pad relative flex min-h-[90vh] flex-col justify-center overflow-hidden px-6"
+      ref={sectionRef}
+      className="section-pad relative flex min-h-[100svh] flex-col justify-center overflow-hidden px-6"
     >
       <div ref={targetRef} className="absolute inset-0 z-0" aria-hidden="true" />
-      <div className="relative z-[6] mx-auto w-full max-w-6xl">
+      <motion.div
+        className="relative z-[6] mx-auto w-full max-w-6xl origin-top-left"
+        style={
+          prefersReducedMotion ? undefined : { scale, opacity, filter: blur }
+        }
+      >
+        <motion.p
+          className="mb-8 inline-flex items-center gap-2.5 rounded-full border border-border px-3.5 py-1.5 font-mono text-xs text-text-secondary"
+          initial={prefersReducedMotion ? false : { opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.2, ease: "easeOut" }}
+        >
+          <span className="relative flex h-2 w-2">
+            <span className="status-ping absolute inline-flex h-full w-full rounded-full bg-accent" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
+          </span>
+          {siteConfig.availability}
+        </motion.p>
         <MagneticHover strength={6} className="inline-block">
           <InvertBlobHover>
             <h1 className="flex flex-nowrap whitespace-nowrap text-[clamp(3rem,12vw,11rem)] leading-[0.95] font-medium tracking-tight text-text-primary">
@@ -65,7 +111,7 @@ export function Hero() {
           animate={{ opacity: 1, y: 0 }}
           transition={{
             duration: 0.6,
-            delay: nameChars.length * REVEAL_STAGGER + 0.2,
+            delay: introDelay + 0.2,
             ease: "easeOut",
           }}
         >
@@ -77,7 +123,7 @@ export function Hero() {
           animate={{ opacity: 1, y: 0 }}
           transition={{
             duration: 0.6,
-            delay: nameChars.length * REVEAL_STAGGER + 0.35,
+            delay: introDelay + 0.35,
             ease: "easeOut",
           }}
         >
@@ -100,8 +146,24 @@ export function Hero() {
               Read case studies
             </a>
           </MagneticHover>
+          <motion.a
+            href="#about"
+            className="ml-auto hidden items-center gap-3 self-center font-mono text-xs text-text-tertiary transition-colors hover:text-text-primary md:flex"
+            initial={prefersReducedMotion ? false : { opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.6, delay: introDelay + 0.6 }}
+          >
+            Scroll
+            <span className="relative block h-8 w-px overflow-hidden bg-border">
+              <span className="scroll-cue absolute inset-x-0 top-0 h-1/2 bg-accent" />
+            </span>
+          </motion.a>
         </div>
-      </div>
+      </motion.div>
+      <VelocityMarquee
+        items={MARQUEE_ITEMS}
+        className="absolute inset-x-0 bottom-6 z-[6] border-y border-border py-4 font-mono text-sm text-text-tertiary md:bottom-10"
+      />
     </section>
   );
 }
