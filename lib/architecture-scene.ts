@@ -44,7 +44,7 @@ function ringPosition(
   return [x, y, z];
 }
 
-const RADIUS = 3.4;
+const RADIUS = 2.9;
 const TILT_DEG = 18;
 // Alternate a little extra elevation per satellite so the ring reads as
 // "orbiting arcs" rather than a flat wheel when the idle rotation is

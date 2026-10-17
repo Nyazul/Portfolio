@@ -2,17 +2,16 @@
 
 import { useRef } from "react";
 import { useFrame } from "@react-three/fiber";
-import type { Mesh } from "three";
+import { Edges } from "@react-three/drei";
+import type { Group, Mesh } from "three";
 import { COLOR } from "@/lib/architecture-colors";
 import type { NodeVisualProps } from "./types";
+import { Glow, glowFor } from "./materials";
 
-// cache - translucent outer sphere (always ~0.4 opacity, "ephemeral") plus
-// an opaque inner core pulsing 0.9-1.1 scale on a fast ~0.8s sine cycle
-// ("hot/fast"), always running regardless of hover/select/dim state (spec
-// Section 1.2) - only the outer sphere's opacity blends with the dimmed
-// state, the pulse itself never pauses.
+// cache - a faceted crystal shell (ephemeral, see-through) around a hot,
+// fast-pulsing orange core, with two electrons whipping round on tilted
+// orbits - "fast, in-memory".
 export function Cache({
-  color,
   bodyOpacity,
   isEmphasized,
   scale,
@@ -21,46 +20,69 @@ export function Cache({
   onClick,
 }: NodeVisualProps) {
   const coreRef = useRef<Mesh>(null);
+  const shellRef = useRef<Mesh>(null);
+  const orbitRefs = useRef<(Group | null)[]>([]);
+  const glow = glowFor(isEmphasized);
 
-  useFrame(({ clock }) => {
-    if (!coreRef.current) return;
-    const s = Math.sin(clock.elapsedTime * 4) * 0.1 + 1;
-    coreRef.current.scale.setScalar(s);
+  useFrame(({ clock }, delta) => {
+    const t = clock.elapsedTime;
+    if (coreRef.current) coreRef.current.scale.setScalar(1 + Math.sin(t * 5) * 0.12);
+    if (shellRef.current) {
+      shellRef.current.rotation.y += delta * 0.25;
+      shellRef.current.rotation.x += delta * 0.1;
+    }
+    orbitRefs.current.forEach((g, i) => {
+      if (g) g.rotation.y = t * (2.4 + i * 0.9);
+    });
   });
-
-  // Outer sphere's own rest-opacity is 0.4 (spec Section 1.3); the dimmed
-  // state multiplies on top of that so it never becomes *more* opaque than
-  // an emphasized/rest cache would be.
-  const outerOpacity = 0.4 * bodyOpacity;
 
   return (
     <group scale={scale}>
       <mesh
+        ref={shellRef}
         onPointerOver={onPointerOver}
         onPointerOut={onPointerOut}
         onClick={onClick}
       >
-        <sphereGeometry args={[0.34, 24, 24]} />
+        <icosahedronGeometry args={[0.36, 0]} />
         <meshStandardMaterial
-          color={color}
-          roughness={0.5}
-          metalness={0.1}
+          color={COLOR.metal}
+          metalness={0.6}
+          roughness={0.15}
           transparent
-          opacity={outerOpacity}
-          emissive={isEmphasized ? COLOR.signal : "#000000"}
-          emissiveIntensity={isEmphasized ? 0.18 : 0}
+          opacity={0.14 * bodyOpacity}
+          depthWrite={false}
+          flatShading
         />
-      </mesh>
-      <mesh ref={coreRef}>
-        <sphereGeometry args={[0.16, 16, 16]} />
-        <meshStandardMaterial
-          color={COLOR.signalDim}
-          roughness={0.4}
-          metalness={0.1}
+        <Edges
+          threshold={1}
+          color={isEmphasized ? COLOR.accent : COLOR.metal}
           transparent
           opacity={bodyOpacity}
         />
       </mesh>
+      <mesh ref={coreRef}>
+        <icosahedronGeometry args={[0.13, 1]} />
+        <Glow opacity={bodyOpacity} intensity={glow} />
+      </mesh>
+      {[0.5, -0.9].map((tilt, i) => (
+        <group key={tilt} rotation={[tilt, 0, tilt * 0.6]}>
+          <group
+            ref={(g) => {
+              orbitRefs.current[i] = g;
+            }}
+          >
+            <mesh position={[0.46, 0, 0]}>
+              <sphereGeometry args={[0.03, 12, 12]} />
+              <Glow opacity={bodyOpacity} intensity={glow} />
+            </mesh>
+          </group>
+          <mesh rotation={[Math.PI / 2, 0, 0]}>
+            <torusGeometry args={[0.46, 0.003, 4, 64]} />
+            <meshBasicMaterial color={COLOR.metal} transparent opacity={0.3 * bodyOpacity} />
+          </mesh>
+        </group>
+      ))}
     </group>
   );
 }

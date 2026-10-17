@@ -32,7 +32,7 @@ export function ArchitectureSection() {
         headline="Where the work lives."
         aside={
           show3D
-            ? "Hover or tab through nodes"
+            ? "Drag to rotate · click a node"
             : "Static view — 3D loads on desktop"
         }
       />

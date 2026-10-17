@@ -55,6 +55,8 @@ const SHAPE_SCALE = 1.5;
 // size), so a held shape still reads as alive and has some fill/volume
 // instead of every particle sitting frozen on a bare outline.
 const SHAPE_WANDER_FRACTION = 0.06;
+// Rotation speed (rad/s) for shapes that carry depth (Point.z).
+const SHAPE_SPIN_SPEED = 0.35;
 
 type ParticleData = {
   baseX: number;
@@ -366,6 +368,9 @@ export function ParticleSystem() {
       const posAttr = geometry.attributes.position as THREE.BufferAttribute;
       const colorAttr = geometry.attributes.aColor as THREE.BufferAttribute;
 
+      const spinCos = Math.cos(t * SHAPE_SPIN_SPEED);
+      const spinSin = Math.sin(t * SHAPE_SPIN_SPEED);
+
       for (let i = 0; i < particles.length; i++) {
         const p = particles[i];
 
@@ -381,20 +386,36 @@ export function ParticleSystem() {
           const sp = shapePoints[i % shapePoints.length];
           // Scaled out from the marker rect's own center (not its edges) so
           // the shape grows bigger without shifting where it's centered.
+          // Mapped into a square (the rect's shorter side), never stretched
+          // to the rect itself - the marker column's height follows its
+          // section's content, and a non-uniform map turned circles into
+          // ovals whenever that content grew.
           const shapeCenterX = shapeRect.left + shapeRect.width / 2;
           const shapeCenterY = shapeRect.top + shapeRect.height / 2;
-          const shapeX = shapeCenterX + (sp.x - 0.5) * shapeRect.width * SHAPE_SCALE;
-          const shapeY = shapeCenterY + (sp.y - 0.5) * shapeRect.height * SHAPE_SCALE;
+          const shapeSide = Math.min(shapeRect.width, shapeRect.height) * SHAPE_SCALE;
+          // Points with a z are true 3D shapes (e.g. the architecture
+          // globe): spin them about the vertical axis and use the rotated
+          // depth, so front-facing particles render larger/brighter.
+          let spX = sp.x - 0.5;
+          let spDepth = 0;
+          if (sp.z !== undefined) {
+            spX = (sp.x - 0.5) * spinCos - sp.z * spinSin;
+            spDepth = (sp.x - 0.5) * spinSin + sp.z * spinCos;
+          }
+          const shapeX = shapeCenterX + spX * shapeSide;
+          const shapeY = shapeCenterY + (sp.y - 0.5) * shapeSide;
           // Small independent wander around the assigned shape point so a
           // held shape keeps some interior motion/fill instead of every
           // particle freezing on the bare outline. Reuses each particle's
           // own idle phase/speed (offset so it doesn't sync with the idle
           // drift) rather than adding new per-particle random state.
           const wanderRadius =
-            Math.min(shapeRect.width, shapeRect.height) * SHAPE_WANDER_FRACTION;
+            (shapeSide / SHAPE_SCALE) * SHAPE_WANDER_FRACTION *
+            (sp.z !== undefined ? 0.35 : 1);
           const wanderX = Math.sin(t * p.speed * 1.3 + p.phaseX * 1.7) * wanderRadius;
           const wanderY = Math.cos(t * p.speed * 1.1 + p.phaseY * 1.9) * wanderRadius;
-          const shapeZ = ((i % 7) - 3) * 26;
+          const shapeZ =
+            sp.z !== undefined ? spDepth * DEPTH_RANGE * 2.2 : ((i % 7) - 3) * 26;
           desiredX = idleX + (shapeX + wanderX - idleX) * effectiveBlend;
           desiredY = idleY + (shapeY + wanderY - idleY) * effectiveBlend;
           desiredZ = idleZ + (shapeZ - idleZ) * effectiveBlend;

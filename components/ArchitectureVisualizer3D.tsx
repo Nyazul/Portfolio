@@ -216,8 +216,8 @@ export function ArchitectureVisualizer3D({ onReady }: { onReady: () => void }) {
                   type="button"
                   className="pointer-events-auto rounded-full border border-border bg-bg/80 px-3 py-1.5 font-mono text-[11px] tracking-wide text-text-tertiary backdrop-blur transition-colors duration-150 hover:text-text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
                   style={{
-                    color: isActive ? "var(--color-signal)" : undefined,
-                    borderColor: isActive ? "var(--color-signal)" : undefined,
+                    color: isActive ? "var(--color-accent)" : undefined,
+                    borderColor: isActive ? "var(--color-accent)" : undefined,
                   }}
                   aria-label={
                     node.caseStudySlug
@@ -267,8 +267,8 @@ export function ArchitectureVisualizer3D({ onReady }: { onReady: () => void }) {
                   type="button"
                   className="pointer-events-auto rounded-full border border-dashed border-border bg-bg/80 px-3 py-1.5 font-mono text-[11px] tracking-wide text-text-tertiary backdrop-blur transition-colors duration-150 hover:text-text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
                   style={{
-                    color: isPlaying ? "var(--color-signal)" : undefined,
-                    borderColor: isPlaying ? "var(--color-signal)" : undefined,
+                    color: isPlaying ? "var(--color-accent)" : undefined,
+                    borderColor: isPlaying ? "var(--color-accent)" : undefined,
                   }}
                   aria-label={`Play flow: ${flow.label}`}
                   onClick={() => play(flow.id)}

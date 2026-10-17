@@ -1,8 +1,17 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Canvas, useFrame, type ThreeEvent } from "@react-three/fiber";
-import { Html, QuadraticBezierLine } from "@react-three/drei";
+import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
+import {
+  Environment,
+  Grid,
+  Html,
+  Lightformer,
+  OrbitControls,
+  QuadraticBezierLine,
+  Sparkles,
+} from "@react-three/drei";
+import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { EffectComposer, Bloom } from "@react-three/postprocessing";
 import * as THREE from "three";
 import designTokens from "@/lib/design-tokens.json";
@@ -20,8 +29,17 @@ import {
 } from "@/lib/hooks/use-flow-playback";
 import { NodeVisualDispatcher } from "@/components/three/nodes/NodeVisualDispatcher";
 
-const DOLLY_MS = 350;
-const DEFAULT_CAMERA_POS: [number, number, number] = [4.6, 3.1, 6.2];
+// Click-to-focus: instead of dollying right up to a node (which also blew
+// the distance-scaled detail panel up to an unreadable size), the camera
+// swings round so the node faces it and eases in only modestly.
+const FOCUS_MS = 900;
+const DEFAULT_CAMERA_POS: [number, number, number] = [5.8, 3.7, 7.9];
+const DEFAULT_DISTANCE = Math.hypot(...DEFAULT_CAMERA_POS);
+const FOCUS_DISTANCE = 7.4;
+// How far the orbit target moves toward the focused node (0 = stay on the
+// hub, 1 = center on the node) - partial keeps the system in frame.
+const FOCUS_TARGET_PULL = 0.45;
+const FOCUS_ELEVATION = 0.42; // rad above the horizon when focused
 const EXPANDED_NODE_SCALE = 1.08;
 const FLASH_MS = 400;
 // Rest-state size bump for legibility - satellites get a bigger boost since
@@ -32,8 +50,8 @@ const FLASH_MS = 400;
 const BASE_HUB_SCALE = 1.05;
 const BASE_SATELLITE_SCALE = 1.2;
 
-function easeOutExpo(t: number) {
-  return t === 1 ? 1 : 1 - Math.pow(2, -10 * t);
+function easeInOutCubic(t: number) {
+  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 }
 
 // Derived, per-frame-cheap snapshot of the active flow step - recomputed
@@ -128,9 +146,13 @@ function ExpandPanel({
   if (!mounted) return null;
 
   return (
-    <Html position={[0.9, 0.3, 0]} distanceFactor={7} style={{ pointerEvents: "none" }}>
+    <Html
+      position={[0.75, 0.45, 0]}
+      zIndexRange={[40, 0]}
+      style={{ pointerEvents: "none" }}
+    >
       <div
-        className="w-56 rounded-md border border-border bg-bg/95 p-4 font-mono text-[11px] normal-case tracking-normal backdrop-blur"
+        className="w-64 rounded-lg border border-border border-t-2 border-t-accent bg-bg/90 p-4 font-mono text-[11px] normal-case tracking-normal shadow-[0_12px_40px_rgba(0,0,0,0.5)] backdrop-blur-md"
         style={{
           pointerEvents: "auto",
           opacity: shown ? 1 : 0,
@@ -140,14 +162,15 @@ function ExpandPanel({
             : "opacity 0.2s ease, transform 0.2s ease",
         }}
       >
-        <div className="mb-2 text-xs uppercase tracking-wide text-text-primary">
+        <div className="mb-2 flex items-center gap-2 text-xs uppercase tracking-wide text-text-primary">
+          <span className="h-1.5 w-1.5 rounded-full bg-accent" aria-hidden="true" />
           {node.label}
         </div>
-        <p className="text-text-secondary">{node.description}</p>
+        <p className="leading-relaxed text-text-secondary">{node.description}</p>
         {node.caseStudySlug && (
           <button
             type="button"
-            className="mt-3 text-text-primary underline decoration-dotted underline-offset-4 transition-colors hover:text-signal focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+            className="mt-3 text-accent underline decoration-dotted underline-offset-4 transition-opacity hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
             onClick={(e) => {
               e.stopPropagation();
               onNavigate(node.caseStudySlug!);
@@ -262,7 +285,9 @@ function Node({
       </group>
       <Html
         center
+        position={[0, node.isHub ? -1.05 : -0.72, 0]}
         distanceFactor={8}
+        zIndexRange={[30, 0]}
         style={{
           pointerEvents: "none",
           opacity: isDimmed ? 0.35 : 1,
@@ -270,8 +295,12 @@ function Node({
         }}
       >
         <div
-          className="whitespace-nowrap font-mono text-[10px] tracking-wide"
-          style={{ color: isEmphasized ? COLOR.signal : COLOR.textTertiary }}
+          className="whitespace-nowrap rounded-full border px-2 py-0.5 font-mono text-[10px] tracking-wide backdrop-blur-sm"
+          style={{
+            color: isEmphasized ? COLOR.accent : COLOR.signalDim,
+            borderColor: isEmphasized ? COLOR.accent : "rgba(255,255,255,0.08)",
+            background: "rgba(10,10,10,0.55)",
+          }}
         >
           {node.label}
         </div>
@@ -280,7 +309,8 @@ function Node({
         <Html
           center
           distanceFactor={8}
-          position={[0, 0.55, 0]}
+          zIndexRange={[30, 0]}
+          position={[0, 0.75, 0]}
           style={{
             pointerEvents: "none",
             opacity: captionVisible ? 1 : 0,
@@ -353,10 +383,10 @@ function Edge({
   });
 
   const lineColor = isFlowStepEdge
-    ? flow.colorHex ?? COLOR.signal
+    ? flow.colorHex ?? COLOR.accent
     : isHoverActive
-      ? COLOR.signal
-      : COLOR.border;
+      ? COLOR.accent
+      : "#3A3A3A";
   const lineWidth = isFlowStepEdge ? 2.2 : isHoverActive ? 1.6 : 1;
   const lineOpacity = flowPlaying
     ? isFlowStepEdge
@@ -366,11 +396,7 @@ function Edge({
       ? 0.25
       : 0.8;
 
-  const pulseColor = isFlowStepEdge
-    ? flow.colorHex ?? COLOR.signal
-    : isHoverActive
-      ? COLOR.signal
-      : COLOR.signalDim;
+  const pulseColor = isFlowStepEdge ? flow.colorHex ?? COLOR.accent : COLOR.accent;
   const pulseOpacity = flowPlaying
     ? isFlowStepEdge
       ? 1
@@ -391,31 +417,23 @@ function Edge({
         opacity={lineOpacity}
       />
       <mesh ref={pulseRef}>
-        <sphereGeometry args={[0.045, 8, 8]} />
-        <meshBasicMaterial color={pulseColor} transparent opacity={pulseOpacity} />
+        <sphereGeometry args={[isFlowStepEdge ? 0.07 : 0.045, 12, 12]} />
+        <meshBasicMaterial
+          color={pulseColor}
+          transparent
+          opacity={pulseOpacity}
+          toneMapped={false}
+        />
       </mesh>
     </>
   );
 }
 
+// Rotation now belongs to the camera (OrbitControls: drag to rotate, slow
+// auto-rotate at rest), not to this group - so node world positions equal
+// their data positions, which the focus rig relies on.
 function OrbitGroup(props: SharedProps & { flow: FlowRuntime }) {
   const groupRef = useRef<THREE.Group>(null);
-  const idleYRef = useRef(0);
-  const tiltXRef = useRef(0);
-  const tiltYRef = useRef(0);
-  const paused = props.hoveredId !== null || props.selectedId !== null;
-
-  useFrame(({ pointer }, delta) => {
-    if (!groupRef.current) return;
-    if (!paused) idleYRef.current += delta * 0.12;
-    // Subtle mouse-parallax tilt (spec Section 4.3) - additive on top of the
-    // idle rotation, never a substitute for it, and kept small (<=~0.08rad)
-    // so it reads as ambient depth, not a drag-to-rotate control.
-    tiltXRef.current = THREE.MathUtils.lerp(tiltXRef.current, pointer.y * 0.08, 0.05);
-    tiltYRef.current = THREE.MathUtils.lerp(tiltYRef.current, pointer.x * 0.08, 0.05);
-    groupRef.current.rotation.x = tiltXRef.current;
-    groupRef.current.rotation.y = idleYRef.current + tiltYRef.current;
-  });
 
   const nodeById = useMemo(() => new Map(sceneNodes.map((n) => [n.id, n])), []);
 
@@ -446,52 +464,98 @@ function CameraRig({
   selectedId: string | null;
   onDollyComplete: (node: SceneNode) => void;
 }) {
-  const startPos = useRef(new THREE.Vector3(...DEFAULT_CAMERA_POS));
-  const targetPos = useRef(new THREE.Vector3(...DEFAULT_CAMERA_POS));
-  const startTime = useRef<number | null>(null);
-  const firedRef = useRef(false);
+  const controls = useThree((state) => state.controls) as OrbitControlsImpl | null;
   const prevSelected = useRef<string | null>(null);
+  const anim = useRef<{
+    t: number;
+    fromTarget: THREE.Vector3;
+    toTarget: THREE.Vector3;
+    fromDir: THREE.Vector3;
+    toDir: THREE.Vector3;
+    fromDist: number;
+    toDist: number;
+    node: SceneNode | null;
+  } | null>(null);
+  const tmpDir = useMemo(() => new THREE.Vector3(), []);
 
   useFrame(({ camera }, delta) => {
+    if (!controls) return;
+
     if (selectedId !== prevSelected.current) {
       prevSelected.current = selectedId;
-      startPos.current.copy(camera.position);
-      startTime.current = 0;
-      firedRef.current = false;
-
-      if (selectedId) {
-        const node = sceneNodes.find((n) => n.id === selectedId);
-        if (node) {
-          const dir = new THREE.Vector3(...node.position).normalize();
-          targetPos.current
-            .set(...node.position)
-            .add(dir.multiplyScalar(1.6))
-            .add(new THREE.Vector3(0, 0.4, 0.6));
-        }
-      } else {
-        targetPos.current.set(...DEFAULT_CAMERA_POS);
+      const node = selectedId
+        ? sceneNodes.find((n) => n.id === selectedId) ?? null
+        : null;
+      const fromDir = camera.position.clone().sub(controls.target).normalize();
+      let toDir = fromDir.clone();
+      let toTarget = new THREE.Vector3(0, 0, 0);
+      if (node && !node.isHub) {
+        const p = new THREE.Vector3(...node.position);
+        // Swing round to the node's side so it faces the camera.
+        const flat = new THREE.Vector3(p.x, 0, p.z).normalize();
+        toDir = flat
+          .multiplyScalar(Math.cos(FOCUS_ELEVATION))
+          .add(new THREE.Vector3(0, Math.sin(FOCUS_ELEVATION), 0))
+          .normalize();
+        toTarget = p.multiplyScalar(FOCUS_TARGET_PULL);
       }
+      anim.current = {
+        t: 0,
+        fromTarget: controls.target.clone(),
+        toTarget,
+        fromDir,
+        toDir,
+        fromDist: camera.position.distanceTo(controls.target),
+        toDist: node ? FOCUS_DISTANCE : DEFAULT_DISTANCE,
+        node,
+      };
     }
 
-    if (startTime.current === null) return;
-    startTime.current += delta * 1000;
-    const t = Math.min(startTime.current / DOLLY_MS, 1);
-    const eased = easeOutExpo(t);
-    camera.position.lerpVectors(startPos.current, targetPos.current, eased);
-    camera.lookAt(0, 0, 0);
+    const a = anim.current;
+    if (!a) return;
+    a.t = Math.min(a.t + (delta * 1000) / FOCUS_MS, 1);
+    const e = easeInOutCubic(a.t);
+    controls.target.lerpVectors(a.fromTarget, a.toTarget, e);
+    tmpDir.copy(a.fromDir).lerp(a.toDir, e).normalize();
+    camera.position
+      .copy(controls.target)
+      .addScaledVector(tmpDir, THREE.MathUtils.lerp(a.fromDist, a.toDist, e));
+    controls.update();
 
-    if (t >= 1 && !firedRef.current && selectedId) {
-      firedRef.current = true;
-      const node = sceneNodes.find((n) => n.id === selectedId);
-      // Arrival no longer auto-navigates (spec Section 3.2.3) - the click-
-      // to-expand panel's own "View case study" button is the only
-      // navigation trigger now. onDollyComplete is kept as a hook for
-      // arrival-timed behavior other than navigation.
-      if (node) onDollyComplete(node);
+    if (a.t >= 1) {
+      anim.current = null;
+      if (a.node) onDollyComplete(a.node);
     }
   });
 
   return null;
+}
+
+// Studio lighting baked into an environment map from a few Lightformers -
+// no HDRI download - so the aluminium bodies get real reflections, with a
+// warm accent-colored strip on one side.
+function Studio() {
+  return (
+    <Environment resolution={256} frames={1}>
+      <Lightformer form="rect" intensity={2.2} position={[0, 5, -4]} scale={[10, 3, 1]} />
+      <Lightformer
+        form="rect"
+        intensity={1.2}
+        position={[-6, 1, 1]}
+        rotation-y={Math.PI / 2}
+        scale={[8, 2, 1]}
+      />
+      <Lightformer
+        form="rect"
+        color={COLOR.accent}
+        intensity={1.4}
+        position={[6, 0, 2]}
+        rotation-y={-Math.PI / 2}
+        scale={[8, 1.5, 1]}
+      />
+      <Lightformer form="ring" intensity={0.8} position={[0, -4, 4]} scale={4} />
+    </Environment>
+  );
 }
 
 type ArchitectureCanvasProps = SharedProps & {
@@ -513,6 +577,8 @@ export default function ArchitectureCanvas({
   }, [onMounted]);
 
   const flow = useFlowRuntime(playback);
+  // Auto-rotate pauses while the visitor is looking at something.
+  const paused = props.hoveredId !== null || props.selectedId !== null;
 
   return (
     <Canvas
@@ -521,9 +587,44 @@ export default function ArchitectureCanvas({
       gl={{ antialias: true, alpha: true }}
       onPointerMissed={props.onBackgroundClick}
     >
-      <ambientLight intensity={0.65} />
-      <directionalLight position={[4, 5, 3]} intensity={0.9} />
-      <directionalLight position={[-3, -2, -4]} intensity={0.25} />
+      <ambientLight intensity={0.25} />
+      <directionalLight position={[4, 6, 3]} intensity={1.1} />
+      <directionalLight position={[-3, -2, -4]} intensity={0.3} />
+      <pointLight position={[0, 0.2, 0]} color={COLOR.accent} intensity={2.5} distance={4} />
+      <Studio />
+      <OrbitControls
+        makeDefault
+        enableZoom={false}
+        enablePan={false}
+        enableDamping
+        dampingFactor={0.08}
+        rotateSpeed={0.6}
+        autoRotate={!paused}
+        autoRotateSpeed={0.5}
+        minPolarAngle={0.35}
+        maxPolarAngle={1.45}
+      />
+      <Grid
+        position={[0, -1.7, 0]}
+        args={[30, 30]}
+        cellSize={0.5}
+        cellThickness={0.6}
+        cellColor="#1c1c1c"
+        sectionSize={2.5}
+        sectionThickness={1}
+        sectionColor="#2e2e2e"
+        fadeDistance={16}
+        fadeStrength={1.5}
+        infiniteGrid
+      />
+      <Sparkles
+        count={70}
+        scale={[10, 4, 10]}
+        size={1.6}
+        speed={0.25}
+        opacity={0.5}
+        color={COLOR.accent}
+      />
       <OrbitGroup {...props} flow={flow} />
       <CameraRig
         selectedId={props.selectedId}
@@ -531,9 +632,9 @@ export default function ArchitectureCanvas({
       />
       <EffectComposer>
         <Bloom
-          intensity={0.4}
-          luminanceThreshold={0.6}
-          luminanceSmoothing={0.2}
+          intensity={0.85}
+          luminanceThreshold={1}
+          luminanceSmoothing={0.15}
           mipmapBlur
         />
       </EffectComposer>

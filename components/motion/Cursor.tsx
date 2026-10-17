@@ -87,16 +87,23 @@ export function Cursor() {
   const show = visible && !overInput;
   const ringSize = label ? 84 : hovering ? 56 : 32;
 
+  // Dot and ring are each their own fixed layer (no shared wrapper): a
+  // positioned wrapper with a z-index is a stacking context, and
+  // mix-blend-difference inside it only blends against that wrapper's
+  // transparent backdrop - white stays white, invisible on light sections.
+  // As direct fixed layers they blend against the actual page.
   return (
-    <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-[9999]">
+    <>
       <motion.div
-        className="absolute top-0 left-0 rounded-full bg-white mix-blend-difference"
+        aria-hidden="true"
+        className="pointer-events-none fixed top-0 left-0 z-[9999] rounded-full bg-white mix-blend-difference"
         style={{ x, y, translateX: "-50%", translateY: "-50%", width: 6, height: 6 }}
         animate={{ opacity: show && !label ? 1 : 0, scale: pressed ? 0.5 : 1 }}
         transition={{ duration: 0.15 }}
       />
       <motion.div
-        className="absolute top-0 left-0 flex items-center justify-center rounded-full border"
+        aria-hidden="true"
+        className="pointer-events-none fixed top-0 left-0 z-[9999] flex items-center justify-center rounded-full border-[1.5px]"
         style={{
           x: ringX,
           y: ringY,
@@ -129,6 +136,6 @@ export function Cursor() {
           )}
         </AnimatePresence>
       </motion.div>
-    </div>
+    </>
   );
 }

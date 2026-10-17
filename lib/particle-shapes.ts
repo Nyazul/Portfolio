@@ -1,4 +1,7 @@
-export type Point = { x: number; y: number }; // fractions 0..1, canvas-relative
+// x/y: fractions 0..1, canvas-relative. Optional z (centered on 0, same
+// units as x - 0.5) marks a true 3D shape: ParticleSystem spins it about
+// the vertical axis and sizes particles by depth.
+export type Point = { x: number; y: number; z?: number };
 
 function circlePoints(cx: number, cy: number, r: number, count: number): Point[] {
   return Array.from({ length: count }, (_, i) => {
@@ -67,6 +70,60 @@ export const nodeGraphPoints: Point[] = [
   ),
 ];
 
+// Architecture (3D): a wireframe globe - latitude rings and meridians - with
+// a tilted orbit ring and three "service" clusters riding it. Reads as a
+// distributed system, and because it carries depth it spins and shades.
+function spherePoint(r: number, lat: number, lon: number): Point {
+  return {
+    x: 0.5 + r * Math.cos(lat) * Math.cos(lon),
+    y: 0.5 - r * Math.sin(lat),
+    z: r * Math.cos(lat) * Math.sin(lon),
+  };
+}
+const GLOBE_R = 0.3;
+const globeLatitudes = [-60, -30, 0, 30, 60].flatMap((deg) => {
+  const lat = (deg * Math.PI) / 180;
+  const n = Math.round(90 * Math.cos(lat));
+  return Array.from({ length: n }, (_, i) =>
+    spherePoint(GLOBE_R, lat, (i / n) * Math.PI * 2),
+  );
+});
+const globeMeridians = Array.from({ length: 6 }, (_, m) => (m / 6) * Math.PI).flatMap(
+  (lon) =>
+    Array.from({ length: 70 }, (_, i) =>
+      spherePoint(GLOBE_R, (i / 70) * Math.PI * 2, lon),
+    ),
+);
+// Orbit: a circle of radius 0.44 in the xz-plane, tilted 22deg about x.
+const ORBIT_TILT = (22 * Math.PI) / 180;
+function orbitPoint(r: number, a: number): Point {
+  const x = Math.cos(a) * r;
+  const zFlat = Math.sin(a) * r;
+  return {
+    x: 0.5 + x,
+    y: 0.5 - zFlat * Math.sin(ORBIT_TILT),
+    z: zFlat * Math.cos(ORBIT_TILT),
+  };
+}
+const globeOrbit = Array.from({ length: 140 }, (_, i) =>
+  orbitPoint(0.44, (i / 140) * Math.PI * 2),
+);
+// Dense little clusters at three spots on the orbit - the "satellites".
+const globeSatellites = [0.3, 2.4, 4.4].flatMap((a) =>
+  Array.from({ length: 36 }, (_, i) => {
+    const c = orbitPoint(0.44, a);
+    const ang = (i / 36) * Math.PI * 2;
+    const rr = 0.012 + (i % 3) * 0.008;
+    return { x: c.x + Math.cos(ang) * rr, y: c.y + Math.sin(ang) * rr, z: c.z };
+  }),
+);
+const globeShape: Point[] = [
+  ...globeLatitudes,
+  ...globeMeridians,
+  ...globeOrbit,
+  ...globeSatellites,
+];
+
 // About: a simple abstract avatar mark - head + shoulders.
 const aboutShape: Point[] = [
   ...circlePoints(0.5, 0.35, 0.14, 60),
@@ -114,7 +171,7 @@ const contactShape: Point[] = [
 
 export const sectionShapes: Record<string, Point[]> = {
   about: aboutShape,
-  architecture: nodeGraphPoints,
+  architecture: globeShape,
   work: caseStudiesShape,
   stack: stackShape,
   principles: principlesShape,

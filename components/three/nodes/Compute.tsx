@@ -2,19 +2,16 @@
 
 import { useRef } from "react";
 import { useFrame } from "@react-three/fiber";
-import type { Group } from "three";
-import { COLOR } from "@/lib/architecture-colors";
+import type { Mesh, MeshStandardMaterial } from "three";
 import type { NodeVisualProps } from "./types";
+import { Glow, Metal, Outline, Panel, glowFor } from "./materials";
 
-const SATELLITE_RADIUS = 0.32;
-const SATELLITE_ANGLES = [0, (2 * Math.PI) / 3, (4 * Math.PI) / 3]; // 120° apart
-const ORBIT_SPEED = 1.5; // rad/s, always running (spec Section 1.2)
+const PIN_OFFSETS = [-0.24, -0.12, 0, 0.12, 0.24];
 
-// workers - a central cube with 3 tiny satellite cubes orbiting it, implying
-// parallel worker processes. The orbit runs continuously, independent of
-// scene idle rotation and hover state - it represents "active processing."
+// workers - a processor package: dark substrate, aluminium heat spreader,
+// rows of pins on every edge and a die that glows harder in bursts (jobs
+// being picked up), with a thin trace ring spinning above it.
 export function Compute({
-  color,
   bodyOpacity,
   isEmphasized,
   scale,
@@ -22,51 +19,56 @@ export function Compute({
   onPointerOut,
   onClick,
 }: NodeVisualProps) {
-  const clusterRef = useRef<Group>(null);
+  const dieRef = useRef<Mesh>(null);
+  const ringRef = useRef<Mesh>(null);
+  const base = glowFor(isEmphasized);
 
-  useFrame((_, delta) => {
-    if (clusterRef.current) clusterRef.current.rotation.y += delta * ORBIT_SPEED;
+  useFrame(({ clock }, delta) => {
+    const t = clock.elapsedTime;
+    if (dieRef.current) {
+      const burst = Math.pow(Math.max(0, Math.sin(t * 2.6)), 6);
+      (dieRef.current.material as MeshStandardMaterial).emissiveIntensity =
+        base * (0.6 + burst * 0.9);
+    }
+    if (ringRef.current) ringRef.current.rotation.z -= delta * 0.9;
   });
 
+  const pins = PIN_OFFSETS.flatMap((o) => [
+    { p: [o, -0.05, 0.4], s: [0.04, 0.03, 0.1] },
+    { p: [o, -0.05, -0.4], s: [0.04, 0.03, 0.1] },
+    { p: [0.4, -0.05, o], s: [0.1, 0.03, 0.04] },
+    { p: [-0.4, -0.05, o], s: [0.1, 0.03, 0.04] },
+  ]);
+
   return (
-    <group scale={scale}>
+    <group scale={scale} rotation={[0.35, 0, 0]}>
       <mesh
         onPointerOver={onPointerOver}
         onPointerOut={onPointerOut}
         onClick={onClick}
       >
-        <boxGeometry args={[0.22, 0.22, 0.22]} />
-        <meshStandardMaterial
-          color={color}
-          roughness={0.6}
-          metalness={0.08}
-          transparent
-          opacity={bodyOpacity}
-          emissive={isEmphasized ? COLOR.signal : "#000000"}
-          emissiveIntensity={isEmphasized ? 0.18 : 0}
-        />
+        <boxGeometry args={[0.72, 0.08, 0.72]} />
+        <Panel opacity={bodyOpacity} />
+        <Outline show={isEmphasized} />
       </mesh>
-      <group ref={clusterRef}>
-        {SATELLITE_ANGLES.map((angle) => (
-          <mesh
-            key={angle}
-            position={[
-              Math.cos(angle) * SATELLITE_RADIUS,
-              0,
-              Math.sin(angle) * SATELLITE_RADIUS,
-            ]}
-          >
-            <boxGeometry args={[0.1, 0.1, 0.1]} />
-            <meshStandardMaterial
-              color={COLOR.signalDim}
-              roughness={0.6}
-              metalness={0.08}
-              transparent
-              opacity={bodyOpacity}
-            />
-          </mesh>
-        ))}
-      </group>
+      <mesh position={[0, 0.07, 0]}>
+        <boxGeometry args={[0.46, 0.06, 0.46]} />
+        <Metal opacity={bodyOpacity} />
+      </mesh>
+      <mesh ref={dieRef} position={[0, 0.105, 0]}>
+        <boxGeometry args={[0.2, 0.012, 0.2]} />
+        <Glow opacity={bodyOpacity} intensity={base} />
+      </mesh>
+      {pins.map((pin, i) => (
+        <mesh key={i} position={pin.p as [number, number, number]}>
+          <boxGeometry args={pin.s as [number, number, number]} />
+          <Metal opacity={bodyOpacity} />
+        </mesh>
+      ))}
+      <mesh ref={ringRef} position={[0, 0.2, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[0.3, 0.006, 6, 64, Math.PI * 1.2]} />
+        <Glow opacity={bodyOpacity} intensity={base} />
+      </mesh>
     </group>
   );
 }
