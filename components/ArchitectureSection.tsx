@@ -32,7 +32,7 @@ export function ArchitectureSection() {
         <p className="text-sm text-text-tertiary">
           {show3D
             ? "Hover or tab through nodes"
-            : "Interactive 3D version — Phase 4"}
+            : "Static view — 3D loads on desktop"}
         </p>
       </div>
       <div className="relative">

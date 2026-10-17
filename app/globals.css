@@ -12,9 +12,15 @@
   --color-signal-dim: #8A8A8A;
   --color-inverse-bg: #F5F5F5;
   --color-inverse-text: #0A0A0A;
+  /* The one accent (dark-section value; light sections override it via
+     themeStyle() in lib/theme-colors.ts). Reserved for state and emphasis -
+     active nav, focus, selection, status dot, key numbers - never large
+     fills, so the site still reads monochrome at a glance. */
+  --color-accent: #FF6B2C;
+  --color-accent-dim: #B8501F;
 
-  --font-display: "Inter", "Neue Montreal", sans-serif;
-  --font-mono: "JetBrains Mono", monospace;
+  --font-display: var(--font-inter), "Inter", sans-serif;
+  --font-mono: var(--font-jetbrains), "JetBrains Mono", ui-monospace, monospace;
 
   --ease-standard: cubic-bezier(0.65, 0, 0.35, 1);
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
@@ -72,7 +78,7 @@
   --chart-scale-02: #3D3D3D;
   --chart-scale-03: #5C5C5C;
   --chart-scale-04: var(--color-signal-dim);
-  --chart-scale-05: var(--color-signal);
+  --chart-scale-05: var(--color-accent);
   --chart-scale-pattern-color: var(--color-border);
 
   /* Ring/gauge/radar tracks (unused by the charts currently installed, kept
@@ -98,8 +104,30 @@ body {
 }
 
 ::selection {
-  background: var(--color-text-primary);
-  color: var(--color-bg);
+  background: var(--color-accent);
+  color: #0A0A0A;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+}
+
+/* Skip link: off-screen until focused. */
+.skip-link {
+  position: fixed;
+  left: 16px;
+  top: -64px;
+  z-index: 100;
+  padding: 10px 16px;
+  background: var(--color-accent);
+  color: #0A0A0A;
+  font-size: 14px;
+  border-radius: 999px;
+  transition: top 0.2s var(--ease-standard);
+}
+.skip-link:focus {
+  top: 16px;
 }
 
 .section-pad {

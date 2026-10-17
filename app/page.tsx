@@ -14,7 +14,7 @@ import { SectionReveal } from "@/components/motion/SectionReveal";
 // transition FROM above it.
 export default function Home() {
   return (
-    <main>
+    <main id="main">
       <Hero />
       <SectionReveal id="about" theme="light" prevTheme="dark">
         <About />

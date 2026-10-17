@@ -17,6 +17,8 @@ export const themeColors: Record<SectionTheme, Record<string, string>> = {
     signalDim: "#8A8A8A",
     inverseBg: "#F5F5F5",
     inverseText: "#0A0A0A",
+    accent: "#FF6B2C",
+    accentDim: "#B8501F",
   },
   light: {
     bg: "#F5F5F5",
@@ -30,6 +32,8 @@ export const themeColors: Record<SectionTheme, Record<string, string>> = {
     signalDim: "#4D4D4D",
     inverseBg: "#0A0A0A",
     inverseText: "#F5F5F5",
+    accent: "#D9480F",
+    accentDim: "#F2B8A0",
   },
 };
 
@@ -52,5 +56,7 @@ export function themeStyle(theme: SectionTheme): React.CSSProperties {
     "--color-signal-dim": c.signalDim,
     "--color-inverse-bg": c.inverseBg,
     "--color-inverse-text": c.inverseText,
+    "--color-accent": c.accent,
+    "--color-accent-dim": c.accentDim,
   } as React.CSSProperties;
 }

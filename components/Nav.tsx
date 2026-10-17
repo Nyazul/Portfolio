@@ -10,14 +10,17 @@ import { usePrefersReducedMotion } from "@/lib/hooks/use-prefers-reduced-motion"
 // Module-level (not inside the component) so the reference is stable across
 // renders - see useActiveSection's contract on why that matters.
 const links = [
-  { href: "#about", label: "About" },
-  { href: "#architecture", label: "Architecture" },
-  { href: "#work", label: "Work" },
-  { href: "#stack", label: "Stack" },
-  { href: "#experience", label: "Experience" },
-  { href: "#contact", label: "Contact" },
+  { href: "/#about", label: "About" },
+  { href: "/#architecture", label: "Architecture" },
+  { href: "/#work", label: "Work" },
+  { href: "/#stack", label: "Stack" },
+  { href: "/#experience", label: "Experience" },
+  { href: "/#contact", label: "Contact" },
 ];
-const sectionIds = links.map((link) => link.href.slice(1));
+// Hrefs are root-relative ("/#about", not "#about") so they still work from
+// /work/* pages, where a bare hash would point at an anchor that isn't there.
+const sectionId = (href: string) => href.slice(2);
+const sectionIds = links.map((link) => sectionId(link.href));
 
 // Px of scroll before the pill compacts. Matches the pill's own top offset
 // (top-4 = 16px, top-6 = 24px on md+) so the transition lands right around
@@ -102,9 +105,9 @@ export function Nav() {
           }`}
         >
           <a
-            href="#top"
+            href="/#top"
             onClick={() => setIsMobileOpen(false)}
-            className="shrink-0 font-mono text-sm tracking-tight text-text-primary mr-5 text-bold"
+            className="mr-5 shrink-0 font-mono text-sm font-bold tracking-tight text-text-primary"
           >
             NA
           </a>
@@ -123,7 +126,7 @@ export function Nav() {
           >
             <ul className="flex min-w-0 items-center gap-1 text-sm">
               {links.map((link) => {
-                const isActive = activeId === link.href.slice(1);
+                const isActive = activeId === sectionId(link.href);
                 return (
                   <li key={link.href} className="shrink-0">
                     <MagneticHover strength={8}>
@@ -131,12 +134,18 @@ export function Nav() {
                         href={link.href}
                         aria-current={isActive ? "page" : undefined}
                         tabIndex={isCompact ? -1 : undefined}
-                        className={`block rounded-full px-3 py-1.5 transition-colors duration-200 ${
+                        className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 transition-colors duration-200 ${
                           isActive
                             ? "bg-surface text-text-primary"
                             : "text-text-secondary hover:text-text-primary"
                         }`}
                       >
+                        {isActive && (
+                          <span
+                            aria-hidden="true"
+                            className="h-1.5 w-1.5 rounded-full bg-accent"
+                          />
+                        )}
                         {link.label}
                       </a>
                     </MagneticHover>
@@ -181,7 +190,7 @@ export function Nav() {
               className="mt-2 flex w-[min(20rem,calc(100vw-2rem))] flex-col gap-1 rounded-2xl border border-border bg-bg-elevated/95 p-3 shadow-[0_8px_30px_rgba(0,0,0,0.25)] backdrop-blur-md md:hidden"
             >
               {links.map((link) => {
-                const isActive = activeId === link.href.slice(1);
+                const isActive = activeId === sectionId(link.href);
                 return (
                   <a
                     key={link.href}

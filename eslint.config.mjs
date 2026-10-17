@@ -5,6 +5,16 @@ const compat = new FlatCompat({ baseDirectory: import.meta.dirname });
 const eslintConfig = [
   { ignores: [".next/**", "node_modules/**", "next-env.d.ts"] },
   ...compat.extends("next/core-web-vitals", "next/typescript"),
+  {
+    rules: {
+      // Underscore-prefixed names are intentionally unused (type params kept
+      // for documentation, positional args that must exist to reach later ones).
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
+      ],
+    },
+  },
 ];
 
 export default eslintConfig;

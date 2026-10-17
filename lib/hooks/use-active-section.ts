@@ -11,7 +11,10 @@ import { useEffect, useState } from "react";
 // literal) - it's an effect dependency, and a fresh array every render
 // would tear down and rebuild the observer on every render for no reason.
 export function useActiveSection(ids: string[]): string {
-  const [activeId, setActiveId] = useState<string>(ids[0] ?? "");
+  // Starts empty, not ids[0]: on load the hero is in view (not a tracked
+  // section), and on /work/* pages none of the ids exist at all - either way
+  // no link should claim to be current.
+  const [activeId, setActiveId] = useState<string>("");
 
   useEffect(() => {
     const elements = ids

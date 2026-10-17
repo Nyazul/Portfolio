@@ -19,7 +19,7 @@ export function Database({
 }: NodeVisualProps) {
   return (
     <group scale={scale}>
-      {DISK_Y.map((y, i) => (
+      {DISK_Y.map((y) => (
         <mesh
           key={y}
           position={[0, y, 0]}

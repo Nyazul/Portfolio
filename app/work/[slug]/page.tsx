@@ -42,7 +42,7 @@ export default async function CaseStudyPage({
   };
 
   return (
-    <main className="section-pad px-6">
+    <main id="main" className="section-pad px-6">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }}
