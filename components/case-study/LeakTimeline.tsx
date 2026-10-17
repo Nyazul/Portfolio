@@ -65,11 +65,13 @@ export function LeakTimeline() {
               stroke={t.strong ? "var(--color-text-secondary)" : "var(--color-border)"}
               strokeDasharray={t.strong ? undefined : "4 4"}
             />
+            {/* threads-max is labelled on the left: the 95% line sits only
+                ~10px below it, so their labels can't share the right edge. */}
             <text
-              x={W - PAD.r}
+              x={t.strong ? PAD.l + 4 : W - PAD.r}
               y={y(t.v) - 4}
               fontSize={10}
-              textAnchor="end"
+              textAnchor={t.strong ? "start" : "end"}
               fill="var(--color-text-tertiary)"
               fontFamily="var(--font-mono)"
             >
@@ -130,14 +132,14 @@ export function LeakTimeline() {
           <line
             x1={x(FIX_DAY)}
             x2={x(FIX_DAY)}
-            y1={PAD.t + 30}
+            y1={y(LIMIT * 0.45)}
             y2={H - PAD.b}
             stroke="var(--color-text-secondary)"
             strokeDasharray="2 3"
           />
           <text
             x={x(FIX_DAY) + 6}
-            y={PAD.t + 44}
+            y={y(LIMIT * 0.45) + 4}
             fontSize={10}
             fill="var(--color-text-primary)"
             fontFamily="var(--font-mono)"
