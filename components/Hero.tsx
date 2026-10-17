@@ -8,6 +8,7 @@ import { InvertBlobHover } from "@/components/motion/InvertBlobHover";
 import { VelocityMarquee } from "@/components/motion/VelocityMarquee";
 import { useParticleTarget } from "@/lib/hooks/use-particle-target";
 import { usePrefersReducedMotion } from "@/lib/hooks/use-prefers-reduced-motion";
+import { useDeviceTier } from "@/lib/device-tier";
 
 // Hero itself isn't wrapped in SectionReveal (PRD 7.1) - it's the first
 // thing visible on load, there's no scroll position to reveal it from.
@@ -21,8 +22,12 @@ import { usePrefersReducedMotion } from "@/lib/hooks/use-prefers-reduced-motion"
 // opening-statement move noth.in uses for its big hero line. Kept as plain
 // CSS-driven motion values rather than gsap/ScrollTrigger since this runs
 // once on load, not on scroll.
-const REVEAL_STAGGER = 0.2;
-const REVEAL_DURATION = 2.9;
+//
+// Kept short on purpose: the whole intro (name, role, tagline) lands in
+// about a second. A slower reveal looked luxurious but left the page
+// reading as unresponsive for several seconds on first load.
+const REVEAL_STAGGER = 0.045;
+const REVEAL_DURATION = 1.1;
 
 const MARQUEE_ITEMS = [
   "Java",
@@ -40,12 +45,16 @@ const MARQUEE_ITEMS = [
 export function Hero() {
   const targetRef = useParticleTarget("top", "dark", null);
   const prefersReducedMotion = usePrefersReducedMotion();
+  const tier = useDeviceTier();
   const nameChars = siteConfig.name.split("");
   const introDelay = nameChars.length * REVEAL_STAGGER;
 
   // Scroll-out: as the hero leaves the viewport its content recedes (scale,
   // fade, slight blur) instead of just sliding off. Driven by scroll
-  // position, so it reverses exactly when scrolling back up.
+  // position, so it reverses exactly when scrolling back up. The blur is
+  // high-tier only: re-filtering the 11rem name on every scroll frame was
+  // one of the costliest paints on the page, and scale + fade alone still
+  // reads as receding.
   const sectionRef = useRef<HTMLElement>(null);
   const { scrollYProgress } = useScroll({
     target: sectionRef,
@@ -65,7 +74,11 @@ export function Hero() {
       <motion.div
         className="relative z-[6] mx-auto w-full max-w-6xl origin-top-left"
         style={
-          prefersReducedMotion ? undefined : { scale, opacity, filter: blur }
+          prefersReducedMotion
+            ? undefined
+            : tier === "high"
+              ? { scale, opacity, filter: blur }
+              : { scale, opacity }
         }
       >
         <motion.p

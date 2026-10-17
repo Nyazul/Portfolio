@@ -154,6 +154,21 @@ and the section reports "unavailable".
   show as dashed accent placeholders in dev and are omitted in production.
   `grep -rn "TODO" lib components` lists them.
 
+### Performance pass (low-end devices)
+- **Device tier** (`lib/device-tier.ts`): `high` / `low` from CPU cores,
+  `deviceMemory` and Save-Data. Force one with `?perf=low` / `?perf=high`.
+- **Particles** (`components/motion/particle-engine.ts`): three.js is now
+  `import()`ed when the browser is idle, so `/` first-load JS went from
+  426 KB to 254 KB. 1,800 particles on `low` (5,000 on `high`), no MSAA,
+  pixel ratio capped at 1.5 (1 on `low`), element rects cached instead of
+  ~15 `getBoundingClientRect()` calls per frame, and a runtime step-down
+  that halves the particle count if frames average over 24 ms.
+- **3D visualizer**: render loop stops while scrolled out of view
+  (`frameloop="never"`); `low` tier and any device drei's
+  `PerformanceMonitor` flags as slow drop bloom, sparkles and go to 1x DPR.
+- **Hero**: intro lands in ~1 s instead of ~5 s; scroll-out blur only on
+  `high`. Marquee stops offscreen; the nav's (invisible) backdrop blur is gone.
+
 ## Worth checking yourself (nobody has verified these on real devices)
 
 - **iOS Safari pin behavior** (PRD 7.1) — the pinned `ScrollTrigger`

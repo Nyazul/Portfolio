@@ -8,6 +8,7 @@ import {
   Html,
   Lightformer,
   OrbitControls,
+  PerformanceMonitor,
   QuadraticBezierLine,
   Sparkles,
 } from "@react-three/drei";
@@ -15,6 +16,7 @@ import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { EffectComposer, Bloom } from "@react-three/postprocessing";
 import * as THREE from "three";
 import designTokens from "@/lib/design-tokens.json";
+import type { DeviceTier } from "@/lib/device-tier";
 import { COLOR, flowColor } from "@/lib/architecture-colors";
 import {
   sceneNodes,
@@ -630,14 +632,25 @@ type ArchitectureCanvasProps = SharedProps & {
   playback: PlaybackState;
   onDollyComplete: (node: SceneNode) => void;
   onMounted?: () => void;
+  // False while the canvas is scrolled out of view: the render loop stops
+  // entirely instead of drawing an invisible scene at 60fps.
+  active: boolean;
+  tier: DeviceTier;
 };
 
 export default function ArchitectureCanvas({
   onMounted,
   playback,
+  active,
+  tier,
   ...props
 }: ArchitectureCanvasProps) {
   const compact = !!props.compact;
+  // Degraded = no bloom pass, no sparkles, 1x pixel ratio. Low-tier devices
+  // start there; anything else drops into it if PerformanceMonitor sees the
+  // frame rate sag (one-way - never flips back mid-session, so the scene
+  // doesn't visibly pulse between quality levels).
+  const [degraded, setDegraded] = useState(tier === "low");
   // Fires once, after this (heavy, dynamically-imported) component has
   // actually mounted - the gating wrapper uses this to know it's safe to
   // hide the static-grid fallback without a gap where neither is visible.
@@ -655,10 +668,17 @@ export default function ArchitectureCanvas({
         position: DEFAULT_CAMERA_POS,
         fov: compact ? FOV_COMPACT : FOV_DESKTOP,
       }}
-      dpr={compact ? [1, 1.5] : [1, 2]}
-      gl={{ antialias: true, alpha: true }}
+      dpr={degraded ? 1 : compact ? [1, 1.5] : [1, 2]}
+      gl={{ antialias: tier === "high", alpha: true, powerPreference: "high-performance" }}
+      frameloop={active ? "always" : "never"}
       onPointerMissed={props.onBackgroundClick}
     >
+      {!degraded && (
+        <PerformanceMonitor
+          onDecline={() => setDegraded(true)}
+          onFallback={() => setDegraded(true)}
+        />
+      )}
       <ambientLight intensity={0.25} />
       <directionalLight position={[4, 6, 3]} intensity={1.1} />
       <directionalLight position={[-3, -2, -4]} intensity={0.3} />
@@ -690,7 +710,7 @@ export default function ArchitectureCanvas({
         fadeStrength={1.5}
         infiniteGrid
       />
-      {!compact && (
+      {!compact && !degraded && (
         <Sparkles
           count={70}
           scale={[10, 4, 10]}
@@ -706,14 +726,16 @@ export default function ArchitectureCanvas({
         onDollyComplete={props.onDollyComplete}
         compact={compact}
       />
-      <EffectComposer>
-        <Bloom
-          intensity={0.85}
-          luminanceThreshold={1}
-          luminanceSmoothing={0.15}
-          mipmapBlur
-        />
-      </EffectComposer>
+      {!degraded && (
+        <EffectComposer>
+          <Bloom
+            intensity={0.85}
+            luminanceThreshold={1}
+            luminanceSmoothing={0.15}
+            mipmapBlur
+          />
+        </EffectComposer>
+      )}
     </Canvas>
   );
 }

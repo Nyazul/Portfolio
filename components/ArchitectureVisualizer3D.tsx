@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { sceneNodes, type SceneNode } from "@/lib/architecture-scene";
 import { architectureFlows } from "@/lib/architecture-flows";
 import { useFlowPlayback } from "@/lib/hooks/use-flow-playback";
+import { useDeviceTier } from "@/lib/device-tier";
 
 const ArchitectureCanvas = dynamic(
   () => import("@/components/three/ArchitectureCanvas"),
@@ -64,6 +65,8 @@ export function ArchitectureVisualizer3D({ onReady }: { onReady: () => void }) {
   const [eligible, setEligible] = useState(false);
   const [compact, setCompact] = useState(false);
   const [intersecting, setIntersecting] = useState(false);
+  const [inView, setInView] = useState(false);
+  const tier = useDeviceTier();
   const [mounted, setMounted] = useState(false);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -96,6 +99,19 @@ export function ArchitectureVisualizer3D({ onReady }: { onReady: () => void }) {
       { rootMargin: "200px" },
     );
     observer.observe(el);
+    return () => observer.disconnect();
+  }, [eligible]);
+
+  // Separate, persistent observer for pausing: the one above disconnects
+  // after first load, this one keeps toggling the canvas's render loop as
+  // the section scrolls in and out of view.
+  useEffect(() => {
+    if (!eligible || !wrapperRef.current) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setInView(entry.isIntersecting),
+      { rootMargin: "100px" },
+    );
+    observer.observe(wrapperRef.current);
     return () => observer.disconnect();
   }, [eligible]);
 
@@ -217,6 +233,8 @@ export function ArchitectureVisualizer3D({ onReady }: { onReady: () => void }) {
           playback={playback}
           onMounted={() => setMounted(true)}
           compact={compact}
+          active={inView}
+          tier={tier}
         />
       )}
       {mounted && compact && expandedNode && (
