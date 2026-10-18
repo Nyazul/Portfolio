@@ -130,7 +130,7 @@ async function GithubLiveStats() {
 // That data is never mocked; an honest "unavailable" beats a fake number.
 export function StackMetrics() {
   return (
-    <SectionSplit id="stack" theme="dark" shapePoints={sectionShapes.stack} reverse>
+    <SectionSplit id="stack" theme="light" shapePoints={sectionShapes.stack}>
       <SectionHeading index="05" label="Stack" headline="Tools, honestly rated." />
 
       <div className="mb-16">

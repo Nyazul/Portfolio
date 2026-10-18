@@ -32,6 +32,26 @@ const HYSTERESIS_MARGIN = 0.12;
 // How quickly rendered particle position eases toward its target each
 // frame. Small = more lag = the "smooth, delayed" motion asked for.
 const POSITION_DAMPING = 0.045;
+// While a hand-off between two shapes is playing (see BURST_*), particles
+// ease more slowly, so the swarm visibly drifts rather than snapping.
+const BURST_POSITION_DAMPING = 0.028;
+// Hand-off between sections: when the dominant section changes, the swarm
+// first bursts outward (BURST_OUT_S), hangs spread out (BURST_HOLD_S), then
+// slowly gathers into the new shape (BURST_IN_S). Time-based rather than
+// scroll-based: dominance flips in a single frame, so without this the old
+// shape morphed straight into the new one in about half a second.
+const BURST_OUT_S = 0.55;
+const BURST_HOLD_S = 0.35;
+const BURST_IN_S = 2.1;
+// How far each particle is thrown past its idle position at the peak of a
+// burst, as a fraction of the larger viewport side (randomised per
+// particle between the two).
+const BURST_REACH_MIN = 0.12;
+const BURST_REACH_MAX = 0.5;
+// 3D shapes are viewed from slightly above (radians), applied after the
+// spin so horizontal rings and plates read as ellipses and slabs instead of
+// collapsing into flat lines when edge-on.
+const VIEW_TILT = 0.46;
 // Particle color now tracks the section's actual row-flap reveal progress
 // (reported by <SectionReveal/> from the same GSAP scrub) rather than a
 // fixed idle/converged theme switch, so this only needs to smooth out the
@@ -94,6 +114,11 @@ type ParticleData = {
   repelX: number;
   repelY: number;
   size: number;
+  // Unit direction and distance (fraction of the viewport's larger side)
+  // this particle is thrown during a section hand-off burst.
+  burstDirX: number;
+  burstDirY: number;
+  burstReach: number;
   // Eased per-particle color (0-1 channels), so each particle can track the
   // exact background band it's currently drawn over - a row mid-flap, a row
   // already revealed, or a row still fully covered - instead of every
@@ -131,6 +156,14 @@ const fragmentShader = `
     gl_FragColor = vec4(vColor, alpha);
   }
 `;
+
+function easeOutCubic(x: number): number {
+  return 1 - Math.pow(1 - x, 3);
+}
+
+function easeInOutCubic(x: number): number {
+  return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+}
 
 // Cached singletons, not allocated per-call - themeColor() is called from
 // the per-particle hot path (up to 5000x/frame) as well as the once-per-
@@ -200,6 +233,14 @@ export function startParticles(
       repelX: 0,
       repelY: 0,
       size: 5 + Math.random() * 7,
+      ...(() => {
+        const a = Math.random() * Math.PI * 2;
+        return {
+          burstDirX: Math.cos(a),
+          burstDirY: Math.sin(a),
+          burstReach: BURST_REACH_MIN + Math.random() * (BURST_REACH_MAX - BURST_REACH_MIN),
+        };
+      })(),
       curR: 1,
       curG: 1,
       curB: 1,
@@ -326,6 +367,25 @@ export function startParticles(
   let activeTarget: ParticleTarget | null = null;
   let activeScore = 0;
 
+  // Hand-off burst progress, in seconds since it (re)started; null = none.
+  // Restarting mid-burst resumes from the current spread, so scrolling
+  // through several sections keeps the swarm scattered until you stop.
+  let burstT: number | null = null;
+  let lastTargetId: string | null = null;
+  function burstStrength(): number {
+    if (burstT === null) return 0;
+    if (burstT < BURST_OUT_S) return easeOutCubic(burstT / BURST_OUT_S);
+    const t = burstT - BURST_OUT_S - BURST_HOLD_S;
+    if (t < 0) return 1;
+    if (t < BURST_IN_S) return 1 - easeInOutCubic(t / BURST_IN_S);
+    return 0;
+  }
+  function startBurst() {
+    const s = burstStrength();
+    // Re-enter the "out" phase at the time that yields the current spread.
+    burstT = s >= 1 ? BURST_OUT_S : BURST_OUT_S * (1 - Math.cbrt(1 - s));
+  }
+
   // Distance-to-score curve with a flat plateau near the center: full
   // marks (1.0) inside the hold zone, then a linear fade out to the edge
   // of DOMINANCE_RANGE. Without the plateau, a converged shape started
@@ -404,16 +464,21 @@ export function startParticles(
     });
   }
 
-  // Writes the exact background color behind screen position y into `out`
-  // (as r/g/b 0-1 numbers) if y falls inside a registered section's flap
-  // band, using that section's own live per-row progress - not a
-  // canvas-wide average. Returns false (leaving `out` untouched) when y
-  // isn't over any registered section, so the caller can fall back to the
-  // old shape-dominance-based color for those areas (e.g. the Hero, which
-  // has no flap to track at all).
+  // Writes the background color behind screen position y into `out` (r/g/b
+  // 0-1). Inside a section's flap band it's that section's own live per-row
+  // progress, not a canvas-wide average. Outside every band (the hero and
+  // edge-text block above the first section, the footer below the last) it
+  // is the theme of the nearest band above, or the first band's prevTheme
+  // when y is above them all - the page's palettes only change at bands.
+  // Returns false only when no band is registered (mobile before mount).
   function backgroundColorAt(y: number, out: { r: number; g: number; b: number }): boolean {
+    let above: FlapBand | null = null;
     for (const band of flapBands) {
-      if (y < band.top || y > band.top + band.height) continue;
+      if (y > band.top + band.height) {
+        if (!above || band.top > above.top) above = band;
+        continue;
+      }
+      if (y < band.top) continue;
       const rowIdx =
         band.rows > 0
           ? Math.min(band.rows - 1, Math.max(0, Math.floor(((y - band.top) / band.height) * band.rows)))
@@ -426,12 +491,50 @@ export function startParticles(
       out.b = from.b + (to.b - from.b) * p;
       return true;
     }
-    return false;
+    if (flapBands.length === 0) return false;
+    const c = above
+      ? themeColor(above.theme)
+      : themeColor(flapBands.reduce((a, b) => (b.top < a.top ? b : a)).prevTheme);
+    out.r = c.r;
+    out.g = c.g;
+    out.b = c.b;
+    return true;
+  }
+
+  // The row flaps sit above the section content (z-10) so they can hide it,
+  // and this canvas sits below the content (z-5) so particles never cover
+  // text - which put every flap on top of the particles, and the swarm
+  // vanished behind whichever rows were still covering the screen. While
+  // any on-screen flap row is not fully open, the canvas is lifted above
+  // the flaps; once they've all opened it drops back under the content.
+  const BASE_Z = mount.style.zIndex;
+  const RAISED_Z = "11";
+  let raised = false;
+  function updateLayer() {
+    let covering = false;
+    for (const band of flapBands) {
+      if (band.top > height || band.top + band.height < 0 || !band.rowProgress) continue;
+      const rowH = band.height / Math.max(1, band.rows);
+      for (let r = 0; r < band.rowProgress.length; r++) {
+        const rowTop = band.top + r * rowH;
+        if (rowTop > height || rowTop + rowH < 0) continue;
+        if (band.rowProgress[r] < 0.999) {
+          covering = true;
+          break;
+        }
+      }
+      if (covering) break;
+    }
+    if (covering !== raised) {
+      raised = covering;
+      mount.style.zIndex = covering ? RAISED_Z : BASE_Z;
+    }
   }
 
   const bandColorTmp = { r: 1, g: 1, b: 1 };
 
   const clock = new THREE.Clock();
+  let lastStepAt = 0;
 
   const startedAt = performance.now();
   let lastFrameAt = 0;
@@ -468,13 +571,30 @@ export function startParticles(
       rectsMeasuredAt = now;
     }
 
+    const dt = lastStepAt ? Math.min((now - lastStepAt) / 1000, 0.1) : 0;
+    lastStepAt = now;
     const orderedTargets = getParticleTargets();
     const { target, blend } = pickActiveTarget(orderedTargets, scrollY);
+    // A burst plays only when one shape hands over to another - not on the
+    // first convergence out of the hero's idle scatter.
+    const targetId = target?.shapePoints ? target.id : null;
+    if (targetId !== lastTargetId) {
+      if (targetId && lastTargetId) startBurst();
+      lastTargetId = targetId;
+    }
+    if (burstT !== null) {
+      burstT += dt;
+      if (burstT > BURST_OUT_S + BURST_HOLD_S + BURST_IN_S) burstT = null;
+    }
+    const burst = burstStrength();
+    const burstReachPx = Math.max(width, height) * burst;
+    const damping = burstT !== null ? BURST_POSITION_DAMPING : POSITION_DAMPING;
     const shapePoints = target?.shapePoints ?? null;
     const shapeRect = shapePoints ? rectOf(target!.el, scrollY) : null;
     const effectiveBlend = shapePoints ? blend : 0;
 
     rebuildFlapBands(scrollY);
+    updateLayer();
 
     // Fallback color for any particle not currently over a registered
     // flap band at all (e.g. still scattered in the Hero, which never
@@ -496,6 +616,8 @@ export function startParticles(
 
     const spinCos = Math.cos(t * SHAPE_SPIN_SPEED);
     const spinSin = Math.sin(t * SHAPE_SPIN_SPEED);
+    const tiltCos = Math.cos(VIEW_TILT);
+    const tiltSin = Math.sin(VIEW_TILT);
 
     // Per-frame constants of the shape mapping, hoisted out of the loop.
     let shapeCenterX = 0;
@@ -519,6 +641,11 @@ export function startParticles(
       const idleX = p.baseX + Math.sin(t * p.speed + p.phaseX) * p.driftAmp;
       const idleY = p.baseY + Math.cos(t * p.speed + p.phaseY) * p.driftAmp;
       const idleZ = p.baseZ + Math.sin(t * p.speed * 0.6 + p.phaseZ) * (p.driftAmp * 0.5);
+      // At a burst's peak, particles are thrown past their idle spot along
+      // their own direction - the swarm fills (and spills off) the screen
+      // before regrouping, rather than just loosening around the old shape.
+      const scatterX = idleX + p.burstDirX * p.burstReach * burstReachPx;
+      const scatterY = idleY + p.burstDirY * p.burstReach * burstReachPx;
 
       let desiredX = idleX;
       let desiredY = idleY;
@@ -533,13 +660,18 @@ export function startParticles(
         // globe): spin them about the vertical axis and use the rotated
         // depth, so front-facing particles render larger/brighter.
         let spX = sp.x - 0.5;
+        let spY = sp.y - 0.5;
         let spDepth = 0;
         if (sp.z !== undefined) {
           spX = (sp.x - 0.5) * spinCos - sp.z * spinSin;
-          spDepth = (sp.x - 0.5) * spinSin + sp.z * spinCos;
+          const spun = (sp.x - 0.5) * spinSin + sp.z * spinCos;
+          // Then tilt toward the viewer: the near side drops, the top
+          // leans in.
+          spY = (sp.y - 0.5) * tiltCos + spun * tiltSin;
+          spDepth = spun * tiltCos - (sp.y - 0.5) * tiltSin;
         }
         const shapeX = shapeCenterX + spX * shapeSide;
-        const shapeY = shapeCenterY + (sp.y - 0.5) * shapeSide;
+        const shapeY = shapeCenterY + spY * shapeSide;
         // Small independent wander around the assigned shape point so a
         // held shape keeps some interior motion/fill instead of every
         // particle freezing on the bare outline. Reuses each particle's
@@ -557,9 +689,15 @@ export function startParticles(
         desiredZ = idleZ + (shapeZ - idleZ) * effectiveBlend;
       }
 
-      p.currentX += (desiredX - p.currentX) * POSITION_DAMPING;
-      p.currentY += (desiredY - p.currentY) * POSITION_DAMPING;
-      p.currentZ += (desiredZ - p.currentZ) * POSITION_DAMPING;
+      if (burst > 0) {
+        desiredX += (scatterX - desiredX) * burst;
+        desiredY += (scatterY - desiredY) * burst;
+        desiredZ += (idleZ - desiredZ) * burst;
+      }
+
+      p.currentX += (desiredX - p.currentX) * damping;
+      p.currentY += (desiredY - p.currentY) * damping;
+      p.currentZ += (desiredZ - p.currentZ) * damping;
 
       p.repelX *= REPULSION_DECAY;
       p.repelY *= REPULSION_DECAY;
@@ -627,6 +765,7 @@ export function startParticles(
 
   return () => {
     renderer.setAnimationLoop(null);
+    mount.style.zIndex = BASE_Z;
     bodyObserver.disconnect();
     window.removeEventListener("resize", resize);
     window.removeEventListener("pointermove", onPointerMove);

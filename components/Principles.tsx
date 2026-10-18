@@ -31,7 +31,7 @@ const principles = [
 
 export function Principles() {
   return (
-    <SectionSplit id="principles" theme="light" shapePoints={sectionShapes.principles}>
+    <SectionSplit id="principles" theme="dark" shapePoints={sectionShapes.principles} reverse>
       <SectionHeading index="06" label="Principles" headline="How I make decisions." />
       <ol className="grid gap-px overflow-hidden border border-border bg-border md:grid-cols-2">
         {principles.map((p, i) => {

@@ -223,11 +223,11 @@ and the section reports "unavailable".
   marquee (`VelocityMarquee` deleted). Words live in its `ROWS` constant.
 - **Cursor**: solid orange dot/ring, black over orange backgrounds; no
   more `mix-blend-difference`.
-- **Sections now**: 01 About · 02 Architecture · 03 Projects
-  (`ProjectsSection`, dark, a plain themed wrapper rather than a
-  `SectionReveal` since it follows the dark Architecture section) · 04 Case
+- **Sections now**: 01 About · 02 Architecture · 03 Projects · 04 Case
   studies (`id="work"`) · 05 Stack · 06 Principles · 07 Experience ·
-  08 Contact. Stack and Principles drop out of the desktop nav pill between
+  08 Contact. Every one is a `SectionReveal`, alternating light/dark
+  (About light) and shape side via `reverse` (About's shape on the right);
+  keep the two in step when adding a section. Stack and Principles drop out of the desktop nav pill between
   md and lg (`wide: true` in `Nav.tsx`) so eight links fit.
 - **Particle shapes**: every shape is normalised in `lib/particle-shapes.ts`
   (centred, larger extent = `SHAPE_SPAN`), and on md+ each section's shape
@@ -235,6 +235,15 @@ and the section reports "unavailable".
   view, at the same size, for the whole section. `particle-engine.ts`
   computes sticky positions itself because its rect cache is
   document-relative.
+- **Particle hand-offs**: Projects (stacked platform layers), Case studies
+  (a bug under a magnifier) and Experience (a rising double helix) are new;
+  the 3D ones spin and are tilted toward the viewer (`VIEW_TILT`). When the
+  dominant section changes, the swarm bursts outward, hangs, then gathers
+  into the next shape over ~3s (`BURST_*` in `particle-engine.ts`). While
+  any on-screen row flap is still closed the canvas is lifted above the
+  flaps (z 11), so particles no longer vanish behind them; particle colour
+  outside every section (hero, edge text, footer) follows the nearest
+  section's palette instead of the dominant one.
 - **Case studies match the code**: billing now tells the real three-stage
   story (prototype read-modify-write → today's atomic increment with a Java
   check → proposed guarded UPDATE), and S3 describes the real compensation

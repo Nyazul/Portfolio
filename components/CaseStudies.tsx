@@ -11,7 +11,7 @@ import { sectionShapes } from "@/lib/particle-shapes";
 // this stays a server component.
 export function CaseStudies() {
   return (
-    <SectionSplit id="work" theme="light" shapePoints={sectionShapes.work}>
+    <SectionSplit id="work" theme="dark" shapePoints={sectionShapes.work} reverse>
       <SectionHeading index="04" label="Case studies" headline="Bugs worth writing about." />
       <ol className="border-t border-border">
         {caseStudies.map((study, i) => (
