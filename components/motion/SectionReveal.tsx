@@ -98,28 +98,32 @@ export function SectionReveal({
             setRowRevealProgress(id, flapsRef.current.map(() => 0));
           }
 
+          // Progress is reported from the timeline's own onUpdate, which
+          // fires on every frame the scrubbed tween renders - not from the
+          // ScrollTrigger's, which fires when the scroll position changes.
+          // With scrub easing the flaps keep moving for ~0.5s after the
+          // last scroll event, so reading them there left the final state
+          // stale: a fully open section still reported as covered, and the
+          // particles took the wrong colour and stayed above the content.
+          //
+          // Each row's own live scaleY is read (rather than re-deriving
+          // per-row timing from the stagger), which is exact regardless of
+          // easing and lets <ParticleSystem/> colour each particle by the
+          // row actually behind it.
           const tl = gsap.timeline({
+            onUpdate: () => {
+              if (!id) return;
+              setRevealProgress(id, tl.progress());
+              setRowRevealProgress(
+                id,
+                flapsRef.current.map((el) => 1 - (gsap.getProperty(el, "scaleY") as number)),
+              );
+            },
             scrollTrigger: {
               trigger: container,
               start: "top 70%",
               end: "top 0%",
               scrub: 0.5,
-              // self.progress is a single scalar for the WHOLE staggered
-              // timeline, so on its own it can only describe an average
-              // reveal state - some rows may already be fully open while
-              // others haven't started. Reading each row's own live scaleY
-              // instead (rather than re-deriving per-row timing from the
-              // stagger/duration constants) is exact regardless of easing,
-              // and is what lets <ParticleSystem/> color each particle by
-              // the row actually behind it instead of a canvas-wide guess.
-              onUpdate: (self) => {
-                if (!id) return;
-                setRevealProgress(id, self.progress);
-                setRowRevealProgress(
-                  id,
-                  flapsRef.current.map((el) => 1 - (gsap.getProperty(el, "scaleY") as number)),
-                );
-              },
             },
           });
 

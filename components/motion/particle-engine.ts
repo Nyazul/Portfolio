@@ -84,6 +84,8 @@ const PARTICLE_COUNT = {
 // Pixel-ratio cap. The points are soft round sprites, so the difference
 // between 1.5x and 2x is invisible while the fill cost is ~44% lower.
 const MAX_PIXEL_RATIO: Record<DeviceTier, number> = { high: 1.5, low: 1 };
+// Budget for the Canvas 2D fallback (no WebGL), drawn on the CPU at 1x.
+const FALLBACK_COUNT = { desktop: 900, mobile: 400 } as const;
 
 // Runtime step-down: if the average frame over a sample window is slower
 // than this (~42fps), halve the live particle count and drop to 1x pixel
@@ -179,6 +181,119 @@ function themeColor(theme: SectionTheme): THREE.Color {
   return theme === "dark" ? DARK_PARTICLE_COLOR : LIGHT_PARTICLE_COLOR;
 }
 
+// Whether this browser can create a WebGL context at all. Fails when the
+// GPU is disabled or blocklisted and the software fallback is off - e.g.
+// the Brave snap on Linux/Wayland, which runs with GPU compositing disabled,
+// and current Chromium no longer falls back to SwiftShader automatically.
+// The probe context is released straight away.
+function webglAvailable(): boolean {
+  try {
+    const probe = document.createElement("canvas");
+    const gl = probe.getContext("webgl2") ?? probe.getContext("webgl");
+    if (!gl) return false;
+    gl.getExtension("WEBGL_lose_context")?.loseContext();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// What the simulation draws into. WebGL is the normal path; without it the
+// same position/size/colour buffers are drawn with Canvas 2D - fewer
+// particles, the same shapes, colours and motion - instead of nothing.
+type Surface = {
+  element: HTMLCanvasElement;
+  setSize(width: number, height: number): void;
+  setPixelRatio(ratio: number): void;
+  render(count: number): void;
+  setLoop(step: ((now: number) => void) | null): void;
+  dispose(): void;
+};
+
+// Soft round sprite matching the shader's smoothstep falloff, pre-rendered
+// once per colour so each particle is a single drawImage.
+function makeSprite(rgb: string): HTMLCanvasElement {
+  const size = 32;
+  const c = document.createElement("canvas");
+  c.width = c.height = size;
+  const g = c.getContext("2d")!;
+  const grad = g.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  grad.addColorStop(0, `rgba(${rgb},1)`);
+  grad.addColorStop(0.1, `rgba(${rgb},1)`);
+  grad.addColorStop(0.55, `rgba(${rgb},0.5)`);
+  grad.addColorStop(1, `rgba(${rgb},0)`);
+  g.fillStyle = grad;
+  g.fillRect(0, 0, size, size);
+  return c;
+}
+
+function create2dSurface(
+  positions: Float32Array,
+  sizes: Float32Array,
+  colors: Float32Array,
+): Surface | null {
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  const light = makeSprite("255,255,255");
+  const dark = makeSprite("13,13,13");
+  let w = 0;
+  let h = 0;
+  let ratio = 1;
+  let raf = 0;
+  function apply() {
+    canvas.width = Math.round(w * ratio);
+    canvas.height = Math.round(h * ratio);
+    canvas.style.width = `${w}px`;
+    canvas.style.height = `${h}px`;
+  }
+  return {
+    element: canvas,
+    setSize(width, height) {
+      w = width;
+      h = height;
+      apply();
+    },
+    setPixelRatio(r) {
+      ratio = r;
+      if (w) apply();
+    },
+    render(count) {
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      ctx.clearRect(0, 0, w, h);
+      for (let i = 0; i < count; i++) {
+        const z = positions[i * 3 + 2];
+        // Same depth cues as the vertex shader.
+        const depthT = Math.min(Math.max((z + DEPTH_RANGE) / (DEPTH_RANGE * 2), 0), 1);
+        const size = sizes[i] * (0.55 + 1.15 * depthT);
+        // Particles only ever blend between the two theme colours, so the
+        // nearer one is close enough and keeps this to one draw each.
+        ctx.globalAlpha = 0.3 + 0.7 * depthT;
+        ctx.drawImage(
+          colors[i * 3] > 0.5 ? light : dark,
+          positions[i * 3] - size / 2,
+          positions[i * 3 + 1] - size / 2,
+          size,
+          size,
+        );
+      }
+      ctx.globalAlpha = 1;
+    },
+    setLoop(step) {
+      cancelAnimationFrame(raf);
+      if (!step) return;
+      const tick = (now: number) => {
+        step(now);
+        raf = requestAnimationFrame(tick);
+      };
+      raf = requestAnimationFrame(tick);
+    },
+    dispose() {
+      cancelAnimationFrame(raf);
+    },
+  };
+}
+
 // Mounts the particle canvas into `mount` and starts it. Returns a cleanup
 // that stops the loop and releases every GL resource.
 export function startParticles(
@@ -189,16 +304,7 @@ export function startParticles(
   let height = window.innerHeight;
   const viewport = width < 768 ? "mobile" : "desktop";
 
-  // No antialias: every point is already drawn as a smoothstepped disc in
-  // the fragment shader, so MSAA only multiplied the fill cost.
-  const renderer = new THREE.WebGLRenderer({
-    alpha: true,
-    antialias: false,
-    powerPreference: "high-performance",
-  });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO[tier]));
-  renderer.setSize(width, height);
-  mount.appendChild(renderer.domElement);
+  const useWebGL = webglAvailable();
 
   const scene = new THREE.Scene();
   // Ortho camera mapped 1:1 to CSS pixels, top=0/bottom=height so world Y
@@ -208,7 +314,7 @@ export function startParticles(
   const camera = new THREE.OrthographicCamera(0, width, 0, height, -2000, 2000);
   camera.position.set(0, 0, 1000);
 
-  const count: number = PARTICLE_COUNT[tier][viewport];
+  const count: number = useWebGL ? PARTICLE_COUNT[tier][viewport] : FALLBACK_COUNT[viewport];
   const minCount = Math.min(MIN_COUNT[viewport], count);
   // How many particles are simulated and drawn right now - starts at the
   // full budget, can only step down (see SLOW_FRAME_MS).
@@ -275,6 +381,42 @@ export function startParticles(
 
   const points = new THREE.Points(geometry, material);
   scene.add(points);
+
+  let surface: Surface | null = null;
+  if (useWebGL) {
+    try {
+      // No antialias: every point is already drawn as a smoothstepped disc
+      // in the fragment shader, so MSAA only multiplied the fill cost.
+      const renderer = new THREE.WebGLRenderer({
+        alpha: true,
+        antialias: false,
+        powerPreference: "high-performance",
+      });
+      surface = {
+        element: renderer.domElement,
+        setSize: (w, h) => renderer.setSize(w, h),
+        setPixelRatio: (r) => renderer.setPixelRatio(r),
+        render: () => renderer.render(scene, camera),
+        setLoop: (step) => renderer.setAnimationLoop(step),
+        dispose: () => renderer.dispose(),
+      };
+    } catch {
+      // Probe passed but the real context failed (lost GPU, driver
+      // quirk) - fall through to 2D.
+    }
+  }
+  surface ??= create2dSurface(positions, sizes, colors);
+  if (!surface) {
+    geometry.dispose();
+    material.dispose();
+    return () => {};
+  }
+  const view: Surface = surface;
+  view.setPixelRatio(
+    useWebGL ? Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO[tier]) : 1,
+  );
+  view.setSize(width, height);
+  mount.appendChild(view.element);
 
   const mouse = { x: width / 2, y: height / 2, active: false };
   const tilt = { x: 0, y: 0 };
@@ -354,7 +496,7 @@ export function startParticles(
   function resize() {
     width = window.innerWidth;
     height = window.innerHeight;
-    renderer.setSize(width, height);
+    view.setSize(width, height);
     camera.right = width;
     camera.bottom = height;
     camera.updateProjectionMatrix();
@@ -557,7 +699,7 @@ export function startParticles(
     if (avg > SLOW_FRAME_MS && activeCount > minCount) {
       activeCount = Math.max(minCount, Math.floor(activeCount / 2));
       geometry.setDrawRange(0, activeCount);
-      renderer.setPixelRatio(1);
+      view.setPixelRatio(1);
     }
   }
 
@@ -746,7 +888,7 @@ export function startParticles(
     points.rotation.x = tilt.x;
     points.rotation.y = tilt.y;
 
-    renderer.render(scene, camera);
+    view.render(activeCount);
   }
 
   if (reducedMotion) {
@@ -758,13 +900,13 @@ export function startParticles(
       posAttr.setXYZ(i, p.baseX, p.baseY, p.baseZ);
     }
     posAttr.needsUpdate = true;
-    renderer.render(scene, camera);
+    view.render(activeCount);
   } else {
-    renderer.setAnimationLoop(step);
+    view.setLoop(step);
   }
 
   return () => {
-    renderer.setAnimationLoop(null);
+    view.setLoop(null);
     mount.style.zIndex = BASE_Z;
     bodyObserver.disconnect();
     window.removeEventListener("resize", resize);
@@ -772,7 +914,7 @@ export function startParticles(
     window.removeEventListener("pointerleave", onPointerLeave);
     geometry.dispose();
     material.dispose();
-    renderer.dispose();
-    mount.removeChild(renderer.domElement);
+    view.dispose();
+    mount.removeChild(view.element);
   };
 }

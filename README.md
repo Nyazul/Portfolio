@@ -244,6 +244,17 @@ and the section reports "unavailable".
   flaps (z 11), so particles no longer vanish behind them; particle colour
   outside every section (hero, edge text, footer) follows the nearest
   section's palette instead of the dominant one.
+- **No-WebGL fallback**: browsers that can't create a WebGL context (e.g.
+  the Brave snap on Linux/Wayland, which runs with the GPU disabled, now
+  that Chromium no longer falls back to SwiftShader on its own) used to
+  throw in `particle-engine.ts` and show no particles. The engine now
+  probes for WebGL and otherwise draws the same simulation with Canvas 2D
+  (`FALLBACK_COUNT` particles at 1x).
+- **Flap progress timing**: `SectionReveal` reports row progress from the
+  timeline's `onUpdate` (every scrubbed frame) instead of the
+  ScrollTrigger's (scroll events only), so the last ~0.5s of scrub easing
+  is no longer lost - stale values had left open sections reported as
+  covered (wrong particle colour, canvas left above the content).
 - **Case studies match the code**: billing now tells the real three-stage
   story (prototype read-modify-write → today's atomic increment with a Java
   check → proposed guarded UPDATE), and S3 describes the real compensation
