@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Analytics } from "@vercel/analytics/next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Nav } from "@/components/Nav";
@@ -84,6 +85,7 @@ export default function RootLayout({
           />
           <Nav />
           {children}
+          <Analytics />
           <Footer />
           <Cursor />
           {/* Only slugs and titles cross into the client bundle, not the
